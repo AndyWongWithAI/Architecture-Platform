@@ -1,0 +1,921 @@
+openapi: 3.1.0
+
+info:
+  title: Architecture Platform API
+  description: |
+    架构平台 API —— CLAUDE.md 资产 / 反馈 / 复用 三原则的落点。
+
+    ## 写入规则
+    - 写入类(POST / PATCH / DELETE)需 `X-API-Key` 请求头
+    - 读取类(GET)可匿名(可对外暴露只读视图)
+    - Web UI 强制只读 + 写操作走 CLI(自带 API Key),详见 DESIGN.md §4.3
+
+    ## 数据约定
+    - 所有时间戳:ISO 8601 + UTC(`2026-06-20T07:00:00Z`)
+    - 所有 ID:UUID v4
+    - 所有版本字符串:SemVer(`1.2.0`)
+    - 所有 kebab-case:`^[a-z][a-z0-9-]*$`
+
+    ## 完整设计文档
+    https://github.com/AndyWongWithAI/Architecture-Platform/blob/main/docs/DESIGN.md
+  version: 0.1.0
+  contact:
+    name: AndyWongWithAI
+    url: https://github.com/AndyWongWithAI/Architecture-Platform/issues
+  license:
+    name: Internal Use Only
+
+servers:
+  - url: http://127.0.0.1:8088
+    description: 本地部署(MVP 默认端口,Nginx 反代上游)
+  - url: https://arch.local
+    description: 内部部署(内网 DNS + VPN)
+  - url: https://platform.intelab.cn
+    description: 公网部署(Phase 5 后启用)
+
+tags:
+  - name: Component
+    description: 组件 CRUD + 依赖树 + 使用指引
+  - name: Version
+    description: 组件版本(SemVer 强制)
+  - name: Deployment
+    description: 部署登记(bit-by-bit 可重现)
+  - name: Feedback
+    description: Bug 反馈 + 决策闭环
+  - name: Search
+    description: 全文搜索
+  - name: Health
+    description: 健康检查
+
+security:
+  - ApiKeyAuth: []
+
+paths:
+  # ============== Health ==============
+  /healthz:
+    get:
+      tags: [Health]
+      summary: 健康检查
+      security: []
+      responses:
+        '200':
+          description: 服务正常
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  # ============== Component ==============
+  /api/v1/components:
+    post:
+      tags: [Component]
+      summary: 创建组件
+      description: |
+        创建新组件。登记时机:Phase 2(设计定稿)或 Phase 6(部署上线)。
+
+        **校验规则**(违反返回 422):
+        - `atomic=true` ⇒ `composed_of` 必空
+        - `atomic=false` ⇒ `composed_of` 必非空,每个引用必须存在
+        - 复合组件的子组件层号 ≤ 自己层号
+        - `composed_of` 形成图必须无环
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ComponentCreate'
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Component'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409':
+          description: 组件名已存在
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          description: 校验失败(原子性 / 分层一致 / 环)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    get:
+      tags: [Component]
+      summary: 列出/搜索组件
+      security: []
+      parameters:
+        - in: query
+          name: layer
+          schema: { $ref: '#/components/schemas/Layer' }
+        - in: query
+          name: category
+          schema: { $ref: '#/components/schemas/Category' }
+        - in: query
+          name: status
+          schema: { $ref: '#/components/schemas/ComponentStatus' }
+        - in: query
+          name: tag
+          schema: { type: string }
+          description: 单 tag 过滤
+        - in: query
+          name: q
+          schema: { type: string }
+          description: 模糊搜索 name / title / positioning
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/OffsetParam'
+      responses:
+        '200':
+          description: 组件列表(分页)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ComponentList' }
+
+  /api/v1/components/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    get:
+      tags: [Component]
+      summary: 组件详情(含版本列表)
+      security: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ComponentDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Component]
+      summary: 更新组件元数据
+      description: |
+        不可修改字段:`name`、`positioning`、`atomic`、`composed_of`、`created_at`
+        要改定位 = 登记新组件并 deprecated 旧组件
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ComponentUpdate' }
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Component' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /api/v1/components/{id}/versions:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    post:
+      tags: [Version]
+      summary: 创建新版本
+      description: |
+        登记新版本(Phase 2 设计定稿)。SemVer 必填。
+        major 版本必须填 `breaking_changes`,否则返回 422。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VersionCreate' }
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Version' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: 版本号已存在
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          description: SemVer 校验失败 / major 缺 breaking_changes
+
+  /api/v1/components/{id}/tree:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+      - in: query
+        name: depth
+        schema: { type: integer, default: 10, minimum: 1, maximum: 50 }
+        description: 树展开深度限制
+    get:
+      tags: [Component]
+      summary: 展开 composed_of 依赖树
+      description: |
+        返回组件及其所有依赖的树形结构,直到全部展开为原子组件。
+        若图存在环,返回 422 + 错误节点列表(理论上不可能,登记时已校验,作为防御)。
+      security: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ComponentTree' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/components/{id}/usage:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    get:
+      tags: [Component]
+      summary: 取出安装命令 + 使用示例 + 当前版本
+      description: |
+        给 `arch use <comp>` 用。返回:
+        - `install_command` 一行可直接复制粘贴
+        - `usage_example` 一行代码
+        - `current_version` 当前推荐版本
+      security: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ComponentUsage' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ============== Version ==============
+  /api/v1/versions/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    get:
+      tags: [Version]
+      summary: 版本详情
+      security: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Version' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/versions/{id}/deployments:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    post:
+      tags: [Deployment]
+      summary: 登记部署(Phase 6 部署上线)
+      description: |
+        由 GitHub Action `arch-platform-register@v1` 自动调用。
+        `resolved_versions` 和 `lockfile_hash` 用于 bit-by-bit 可重现。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DeploymentCreate' }
+      responses:
+        '201':
+          description: 登记成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Deployment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/versions/{id}/feedbacks:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    post:
+      tags: [Feedback]
+      summary: 登记 Bug 反馈(Phase 8)
+      description: |
+        `reused_in_projects` 用于评估影响面(对应 CLAUDE.md 反馈原则"考虑存量引用关系")。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FeedbackCreate' }
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Feedback' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ============== Feedback ==============
+  /api/v1/feedbacks:
+    get:
+      tags: [Feedback]
+      summary: 查询反馈列表
+      security: []
+      parameters:
+        - in: query
+          name: status
+          schema: { $ref: '#/components/schemas/FeedbackStatus' }
+        - in: query
+          name: severity
+          schema: { $ref: '#/components/schemas/FeedbackSeverity' }
+        - in: query
+          name: version_id
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/OffsetParam'
+      responses:
+        '200':
+          description: 反馈列表(分页)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FeedbackList' }
+
+  /api/v1/feedbacks/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    patch:
+      tags: [Feedback]
+      summary: 更新反馈状态 / 决策
+      description: |
+        `status` 流转到 `fixed` 或 `wontfix` 前必须填 `decision`(optimize/fork_new/keep_as_is)。
+        这是 CLAUDE.md 反馈原则的闭环机制。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FeedbackUpdate' }
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Feedback' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422':
+          description: 状态流转缺少 decision 字段
+
+  # ============== Deployment ==============
+  /api/v1/deployments:
+    get:
+      tags: [Deployment]
+      summary: 查询部署历史
+      security: []
+      parameters:
+        - in: query
+          name: host
+          schema: { type: string }
+          description: 主机标识(例:`alicloud-1`)
+        - in: query
+          name: env
+          schema: { $ref: '#/components/schemas/DeploymentEnv' }
+        - in: query
+          name: component_id
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/OffsetParam'
+      responses:
+        '200':
+          description: 部署列表(分页)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeploymentList' }
+
+  # ============== Search ==============
+  /api/v1/search:
+    get:
+      tags: [Search]
+      summary: 全文搜索
+      security: []
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema: { type: string, minLength: 1 }
+          description: 搜索关键词
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum: [component, version, deployment, feedback, all]
+            default: all
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: 搜索结果(按 type 分组)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SearchResponse' }
+
+# ============== Components ==============
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: |
+        静态 API Key(写到 `ARCH_PLATFORM_API_KEY` 环境变量)。
+        写入类(POST/PATCH/DELETE)必须带,GET 可不帶。
+
+  parameters:
+    IdParam:
+      in: path
+      name: id
+      required: true
+      schema: { type: string, format: uuid }
+    LimitParam:
+      in: query
+      name: limit
+      schema: { type: integer, default: 50, minimum: 1, maximum: 500 }
+    OffsetParam:
+      in: query
+      name: offset
+      schema: { type: integer, default: 0, minimum: 0 }
+
+  responses:
+    BadRequest:
+      description: 请求格式错误(JSON 解析失败 / 必填字段缺失)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthorized:
+      description: 缺少或无效的 API Key
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: 资源不存在
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    UnprocessableEntity:
+      description: 业务校验失败
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    InternalServerError:
+      description: 服务内部错误
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+  schemas:
+    # ---------- 枚举 ----------
+    Layer:
+      type: string
+      enum:
+        - L0_infrastructure
+        - L1_platform
+        - L2_capability
+        - L3_application
+      description: |
+        组件分层(DESIGN.md §2.4):
+        - L0_infrastructure: 基础设施(Docker / Linux / K8s)
+        - L1_platform: 平台/中间件(MySQL / Redis / Nginx)
+        - L2_capability: 可复用业务能力(认证库 / 支付)
+        - L3_application: 面向用户的应用(网站 / CLI)
+
+    Category:
+      type: string
+      enum: [auth, db, cache, queue, log, deploy, monitor, ui, util, other]
+
+    ComponentStatus:
+      type: string
+      enum: [draft, stable, deprecated, archived]
+      description: |
+        - `draft`: 草稿(登记但未稳定)
+        - `stable`: 稳定可用(推荐状态)
+        - `deprecated`: 已弃用(被替代)
+        - `archived`: 归档(不可恢复式软删除)
+
+    Scope:
+      type: string
+      enum: [app, infra, lib, tool]
+      description: |
+        - `app`: 应用
+        - `infra`: 基础设施类
+        - `lib`: 库(可 import)
+        - `tool`: 工具类(CLI / 脚本)
+
+    Language:
+      type: string
+      enum: [python, typescript, javascript, go, rust, shell, sql, other]
+
+    SemverIntent:
+      type: string
+      enum: [major, minor, patch]
+      description: |
+        发版时声明的 SemVer 意图。
+        - `major`: 破坏性变更(breaking_changes 必填)
+        - `minor`: 新增功能(向后兼容)
+        - `patch`: Bug 修复(向后兼容)
+
+    DeploymentEnv:
+      type: string
+      enum: [dev, staging, prod]
+
+    FeedbackSeverity:
+      type: string
+      enum: [low, medium, high, critical]
+
+    FeedbackStatus:
+      type: string
+      enum: [open, triaged, fixing, fixed, wontfix]
+
+    FeedbackDecision:
+      type: string
+      enum: [optimize, fork_new, keep_as_is]
+      description: |
+        反馈原则闭环决策:
+        - `optimize`: 优化原组件
+        - `fork_new`: 新建组件(分叉)
+        - `keep_as_is`: 保持不变(已知问题,不修)
+
+    # ---------- 子对象 ----------
+    ComposedOfEntry:
+      type: object
+      required: [component_id, version_constraint]
+      properties:
+        component_id:
+          type: string
+          format: uuid
+        version_constraint:
+          type: string
+          description: SemVer 约束(caret/tilde/exact/range)
+          examples: ["^1.2.0", "~0.8.0", ">=2.0.0 <3.0.0", "1.2.0"]
+
+    DeprecateEntry:
+      type: object
+      required: [api, replacement, remove_in]
+      properties:
+        api:
+          type: string
+          description: 弃用的 API / 功能名
+        replacement:
+          type: string
+          description: 替代方案
+        remove_in:
+          type: string
+          description: 在哪个版本彻底移除(如 `2.0.0`)
+
+    ResolvedVersion:
+      type: object
+      description: 实际安装的下层组件版本(从 lockfile 读)
+      additionalProperties:
+        type: string
+      examples:
+        - { "user-auth-jwt": "1.2.3", "email-sender": "0.8.5" }
+
+    # ---------- Component ----------
+    ComponentCreate:
+      type: object
+      required: [name, title, category, scope, layer, positioning, atomic]
+      properties:
+        name:
+          type: string
+          pattern: '^[a-z][a-z0-9-]*$'
+          minLength: 2
+          maxLength: 64
+          description: kebab-case,唯一
+          examples: ["user-auth-jwt"]
+        title:
+          type: string
+          maxLength: 128
+          examples: ["基于 JWT 的用户认证"]
+        category: { $ref: '#/components/schemas/Category' }
+        scope: { $ref: '#/components/schemas/Scope' }
+        layer: { $ref: '#/components/schemas/Layer' }
+        positioning:
+          type: string
+          minLength: 10
+          maxLength: 500
+          description: 定位描述(CLAUDE.md 定位稳定性:不可变,改定位 = 新组件)
+        atomic:
+          type: boolean
+          default: true
+          description: |
+            是否原子组件(DESIGN.md §11):
+            - `true`: 单一职责,无法再拆
+            - `false`: 复合组件(composed_of 必填)
+        composed_of:
+          type: array
+          items: { $ref: '#/components/schemas/ComposedOfEntry' }
+        tags:
+          type: array
+          items: { type: string }
+          maxItems: 20
+        repo_url:
+          type: string
+          format: uri
+        language: { $ref: '#/components/schemas/Language' }
+        package_name:
+          type: string
+          examples: ["arch-component-user-auth-jwt"]
+        install_command:
+          type: string
+          examples: ["pip install arch-component-user-auth-jwt"]
+        usage_example:
+          type: string
+          examples: ["from arch_component_user_auth_jwt import AuthService"]
+
+    ComponentUpdate:
+      type: object
+      description: 不可修改字段已在 API 描述中列出
+      properties:
+        title: { type: string }
+        category: { $ref: '#/components/schemas/Category' }
+        status: { $ref: '#/components/schemas/ComponentStatus' }
+        tags:
+          type: array
+          items: { type: string }
+        repo_url: { type: string, format: uri }
+        language: { $ref: '#/components/schemas/Language' }
+        package_name: { type: string }
+        install_command: { type: string }
+        usage_example: { type: string }
+
+    Component:
+      allOf:
+        - $ref: '#/components/schemas/ComponentCreate'
+        - type: object
+          required: [id, status, current_version_id, created_at, updated_at]
+          properties:
+            id: { type: string, format: uuid }
+            status: { $ref: '#/components/schemas/ComponentStatus' }
+            current_version_id:
+              type: string
+              format: uuid
+              nullable: true
+              description: 推荐版本指针(DESIGN.md §2.3 约束)
+            created_at: { type: string, format: date-time }
+            updated_at: { type: string, format: date-time }
+
+    ComponentDetail:
+      allOf:
+        - $ref: '#/components/schemas/Component'
+        - type: object
+          properties:
+            versions:
+              type: array
+              items: { $ref: '#/components/schemas/Version' }
+
+    ComponentList:
+      type: object
+      required: [total, items]
+      properties:
+        total: { type: integer }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Component' }
+
+    ComponentTree:
+      type: object
+      required: [root, nodes, validated]
+      properties:
+        root:
+          $ref: '#/components/schemas/Component'
+        nodes:
+          type: array
+          description: 展开后的所有节点(DFS 序)
+          items:
+            type: object
+            required: [component, depth, parent_id]
+            properties:
+              component: { $ref: '#/components/schemas/Component' }
+              depth: { type: integer }
+              parent_id: { type: string, format: uuid, nullable: true }
+        validated:
+          type: object
+          properties:
+            no_cycle: { type: boolean }
+            layer_consistent: { type: boolean }
+            atomic_count: { type: integer }
+            composite_count: { type: integer }
+
+    ComponentUsage:
+      type: object
+      required: [component, install_command, usage_example, current_version]
+      properties:
+        component: { $ref: '#/components/schemas/Component' }
+        install_command: { type: string }
+        usage_example: { type: string }
+        current_version: { $ref: '#/components/schemas/Version' }
+
+    # ---------- Version ----------
+    VersionCreate:
+      type: object
+      required: [version, semver_intent, changelog]
+      properties:
+        version:
+          type: string
+          pattern: '^\d+\.\d+\.\d+$'
+          examples: ["1.2.0"]
+        semver_intent: { $ref: '#/components/schemas/SemverIntent' }
+        design_doc:
+          type: string
+          description: Phase 2 设计定稿文档(意图 + 影响面 + 替代方案)
+        replaces_version:
+          type: string
+          description: 被替代的旧版本号(如 "1.1.0")
+        changelog:
+          type: string
+          minLength: 1
+          maxLength: 5000
+        breaking_changes:
+          type: string
+          description: |
+            **major 版本必填**,列出破坏了什么 + 迁移方案。
+            违反 = 422 Unprocessable Entity。
+        deprecates:
+          type: array
+          items: { $ref: '#/components/schemas/DeprecateEntry' }
+        compatibility_window:
+          type: string
+          description: LTS 截止日期(例:`LTS until 2027-06`)
+          examples: ["LTS until 2027-06"]
+
+    Version:
+      allOf:
+        - $ref: '#/components/schemas/VersionCreate'
+        - type: object
+          required: [id, component_id, design_decided_at, created_at]
+          properties:
+            id: { type: string, format: uuid }
+            component_id: { type: string, format: uuid }
+            design_decided_at: { type: string, format: date-time }
+            created_at: { type: string, format: date-time }
+
+    # ---------- Deployment ----------
+    DeploymentCreate:
+      type: object
+      required: [env, host, deploy_path, deployed_by]
+      properties:
+        env: { $ref: '#/components/schemas/DeploymentEnv' }
+        host:
+          type: string
+          description: 主机标识(自定义,如 `alicloud-1` / `huawei-1`)
+        deploy_path:
+          type: string
+          examples: ["/opt/services/auth"]
+        config_hash:
+          type: string
+          description: 配置文件 SHA256(用于追踪配置漂移)
+          examples: ["sha256:abc123..."]
+        deployed_by:
+          type: string
+          examples: ["github-actions"]
+        rollback_to:
+          type: string
+          description: 回滚到的版本号(可选)
+        resolved_versions:
+          $ref: '#/components/schemas/ResolvedVersion'
+        lockfile_hash:
+          type: string
+          description: |
+            整个 lockfile 的 SHA256,确保 bit-by-bit 可重现。
+            由 `arch lock --output requirements.lock` 生成。
+          examples: ["sha256:def456..."]
+        build_reproducible:
+          type: boolean
+          description: 标记本次 build 是否 bit-by-bit 一致
+
+    Deployment:
+      allOf:
+        - $ref: '#/components/schemas/DeploymentCreate'
+        - type: object
+          required: [id, version_id, deployed_at]
+          properties:
+            id: { type: string, format: uuid }
+            version_id: { type: string, format: uuid }
+            deployed_at: { type: string, format: date-time }
+
+    DeploymentList:
+      type: object
+      required: [total, items]
+      properties:
+        total: { type: integer }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Deployment' }
+
+    # ---------- Feedback ----------
+    FeedbackCreate:
+      type: object
+      required: [reporter, bug_summary, severity]
+      properties:
+        reporter:
+          type: string
+          examples: ["andy"]
+        bug_summary:
+          type: string
+          minLength: 5
+          maxLength: 500
+        root_cause:
+          type: string
+          maxLength: 5000
+        fix_plan:
+          type: string
+          maxLength: 5000
+        severity: { $ref: '#/components/schemas/FeedbackSeverity' }
+        reused_in_projects:
+          type: array
+          items: { type: string }
+          description: 影响面:本反馈涉及哪些项目在使用(对应 CLAUDE.md 反馈原则)
+
+    FeedbackUpdate:
+      type: object
+      properties:
+        status: { $ref: '#/components/schemas/FeedbackStatus' }
+        root_cause: { type: string }
+        fix_plan: { type: string }
+        severity: { $ref: '#/components/schemas/FeedbackSeverity' }
+        decision: { $ref: '#/components/schemas/FeedbackDecision' }
+
+    Feedback:
+      allOf:
+        - $ref: '#/components/schemas/FeedbackCreate'
+        - type: object
+          required: [id, version_id, status, created_at]
+          properties:
+            id: { type: string, format: uuid }
+            version_id: { type: string, format: uuid }
+            status: { $ref: '#/components/schemas/FeedbackStatus' }
+            decision:
+              oneOf:
+                - $ref: '#/components/schemas/FeedbackDecision'
+                - type: 'null'
+            decided_at:
+              type: string
+              format: date-time
+              nullable: true
+            created_at: { type: string, format: date-time }
+
+    FeedbackList:
+      type: object
+      required: [total, items]
+      properties:
+        total: { type: integer }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Feedback' }
+
+    # ---------- Search ----------
+    SearchResponse:
+      type: object
+      required: [components, versions, deployments, feedbacks]
+      properties:
+        components:
+          type: array
+          items: { $ref: '#/components/schemas/Component' }
+        versions:
+          type: array
+          items: { $ref: '#/components/schemas/Version' }
+        deployments:
+          type: array
+          items: { $ref: '#/components/schemas/Deployment' }
+        feedbacks:
+          type: array
+          items: { $ref: '#/components/schemas/Feedback' }
+
+    # ---------- Health ----------
+    HealthResponse:
+      type: object
+      required: [status, version, uptime_seconds]
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+        version:
+          type: string
+          examples: ["0.1.0"]
+        uptime_seconds:
+          type: integer
+
+    # ---------- Error ----------
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: |
+            错误码:
+            - `VALIDATION_ERROR`: 字段校验失败
+            - `NOT_FOUND`: 资源不存在
+            - `CONFLICT`: 重复创建
+            - `AUTH_REQUIRED`: 缺 API Key
+            - `CYCLE_DETECTED`: composed_of 形成环
+            - `LAYER_INCONSISTENT`: 分层一致性违反
+            - `MISSING_DECISION`: Feedback 关闭时缺 decision
+            - `MISSING_BREAKING_CHANGES`: major 版本缺 breaking_changes
+            - `INTERNAL_ERROR`: 服务内部错误
+        message:
+          type: string
+          description: 人类可读错误描述
+        details:
+          type: object
+          description: 校验失败时的字段级错误详情
+          additionalProperties: true
