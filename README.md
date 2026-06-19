@@ -2,8 +2,8 @@
 
 CLAUDE.md 提到的"架构平台"——独立组件登记 / 复用 / 反馈系统。
 
-**Status**: ✅ 设计完成 / ✅ Phase 0 启动中 / ⏳ Phase 1+ 等真实组件登记需求
-**Priority**: 中(Phase 0 立刻推进;Phase 1+ 按需)
+**Status**: ✅ 设计完成 / ✅ Phase 0 完成 / ⏳ Phase 1+ 等真实组件登记需求
+**Priority**: 中(Phase 0 完成;Phase 1+ 按需)
 **Owner**: AndyWongWithAI
 
 ## 文档
