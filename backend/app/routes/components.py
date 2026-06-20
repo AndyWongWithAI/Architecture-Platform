@@ -22,6 +22,7 @@ router = APIRouter()
 @router.get("", response_model=ComponentList)
 def list_components(
     q: Optional[str] = Query(None, description="关键词搜索 name/title/positioning/tags"),
+    name: Optional[str] = Query(None, description="按 name 精确过滤(修复 FB-4:之前该参数被忽略,直接返回第一项)"),
     layer: Optional[Layer] = None,
     category: Optional[str] = None,
     is_asset: Optional[bool] = Query(None, description="None=全部;true=只真资产;false=只项目级"),
@@ -31,6 +32,9 @@ def list_components(
 ):
     """列出/搜索组件(默认 is_asset=true 在 Phase 1.1 启用;当前返回全部)"""
     query = db.query(Component)
+    if name:
+        # FB-4 修复:name 精确过滤(kebab-case 唯一,适合脚本化批量操作)
+        query = query.filter(Component.name == name)
     if q:
         like = f"%{q}%"
         query = query.filter(

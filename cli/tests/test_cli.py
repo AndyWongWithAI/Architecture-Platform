@@ -50,8 +50,11 @@ def test_component_list():
     """list 至少返回 9 个种子组件"""
     rc, out, _ = _run("component", "list")
     assert rc == 0
-    # 表格里有 total 计数
-    assert "共 9 个组件" in out
+    # 表格里有 total 计数(补登后总数 22+)
+    import re
+    m = re.search(r"共 (\d+) 个组件", out)
+    assert m, f"未找到总组件数:{out[:200]}"
+    assert int(m.group(1)) >= 9, f"expected ≥9, got {m.group(1)}"
     assert "docker" in out
     assert "nginx" in out
 
@@ -75,7 +78,9 @@ def test_component_list_filter_layer():
     """list --layer 过滤"""
     rc, out, _ = _run("component", "list", "--layer", "L1_platform")
     assert rc == 0
-    assert "共 5 个组件" in out
+    import re
+    m = re.search(r"共 (\d+) 个组件", out)
+    assert m and int(m.group(1)) >= 5, f"expected ≥5 L1, got {out[:200]}"
 
 
 def test_component_list_json():

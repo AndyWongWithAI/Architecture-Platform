@@ -127,8 +127,12 @@ async def test_list_feedbacks():
 @pytest.mark.asyncio
 async def test_create_component_e2e():
     """端到端:create_component via MCP"""
+    # FB-5 修复:用时间戳生成唯一 name,避免跨测试运行累积
+    import time
+    unique_name = f"mcp-test-cache-{int(time.time())}"
+
     data = await _call_tool("create_component", {
-        "name": "mcp-test-cache",
+        "name": unique_name,
         "title": "MCP Test Cache",
         "positioning": "MCP Server 端到端测试用的临时缓存组件,测试后清理",
         "category": "cache",
@@ -137,16 +141,23 @@ async def test_create_component_e2e():
         "is_asset": True,
         "distribution_form": "package",
     })
-    assert data.get("name") == "mcp-test-cache", f"创建失败:{data}"
+    assert data.get("name") == unique_name, f"创建失败:{data}"
     print(f"\n  ✓ MCP create_component 成功:{data['name']}")
 
-    # 清理
-    subprocess.run(
-        ["ssh", "root@124.71.219.208", "sqlite3",
-         "/opt/services/arch-platform/data/arch.db",
-         "DELETE FROM components WHERE name='mcp-test-cache';"],
-        capture_output=True, text=True, timeout=10,
+    # FB-5 修复:清理走 API 闭环(原 SSH+sqlite3 被自动模式拦)
+    # PATCH status=archived(架构平台软删除模式)
+    import httpx
+    PATCH_URL = f"{API_BASE}/api/v1/components/{unique_name}"
+    resp = httpx.patch(
+        PATCH_URL,
+        json={"status": "archived"},
+        headers={"X-API-Key": ""},  # 开放模式
+        timeout=10.0,
     )
+    if resp.status_code == 200:
+        print(f"  ✓ 清理成功:status=archived (HTTP {resp.status_code})")
+    else:
+        print(f"  ✗ 清理失败:HTTP {resp.status_code} {resp.text[:80]}")
 
 
 @pytest.mark.asyncio

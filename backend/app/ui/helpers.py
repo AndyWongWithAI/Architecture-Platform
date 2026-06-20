@@ -115,6 +115,71 @@ def distribution_form_label(form: Optional[str]) -> str:
     return labels.get(form or "", "-")
 
 
+# ——— FB-A 修复:enum 中英文映射 ———
+
+LAYER_ZH = {
+    "L0_infrastructure": "L0 基础设施",
+    "L1_platform": "L1 平台",
+    "L2_capability": "L2 能力",
+    "L3_application": "L3 应用",
+}
+
+CATEGORY_ZH = {
+    "auth": "认证",
+    "db": "数据库",
+    "cache": "缓存",
+    "queue": "队列",
+    "log": "日志",
+    "deploy": "部署",
+    "monitor": "监控",
+    "ui": "界面",
+    "util": "工具",
+    "other": "其他",
+}
+
+STATUS_ZH = {
+    "open": "待分诊",
+    "triaged": "已分诊",
+    "fixing": "修复中",
+    "fixed": "已修复",
+    "wontfix": "不修复",
+}
+
+DECISION_ZH = {
+    "optimize": "优化组件",
+    "fork_new": "新建组件",
+    "keep_as_is": "保持不变",
+    "reassess_form": "重审形态",
+}
+
+SEVERITY_ZH = {
+    "critical": "致命",
+    "high": "高",
+    "medium": "中",
+    "low": "低",
+}
+
+
+def layer_zh(layer: Optional[str]) -> str:
+    return LAYER_ZH.get(layer or "", layer or "")
+
+
+def category_zh(category: Optional[str]) -> str:
+    return CATEGORY_ZH.get(category or "", category or "")
+
+
+def status_zh(status: Optional[str]) -> str:
+    return STATUS_ZH.get(status or "", status or "")
+
+
+def decision_zh(decision: Optional[str]) -> str:
+    return DECISION_ZH.get(decision or "", decision or "")
+
+
+def severity_zh(severity: Optional[str]) -> str:
+    return SEVERITY_ZH.get(severity or "", severity or "")
+
+
 # Jinja2 过滤器注册函数
 def register_filters(env):
     """把上述函数注册为 Jinja2 过滤器"""
@@ -127,3 +192,9 @@ def register_filters(env):
     env.filters["truncate"] = truncate
     env.filters["is_asset_badge"] = is_asset_badge
     env.filters["form_label"] = distribution_form_label
+    # FB-A: 中文映射过滤器
+    env.filters["layer_zh"] = layer_zh
+    env.filters["category_zh"] = category_zh
+    env.filters["status_zh"] = status_zh
+    env.filters["decision_zh"] = decision_zh
+    env.filters["severity_zh"] = severity_zh

@@ -43,7 +43,12 @@
 </style>
 
 <div class="kanban">
-    {% for col_key, col_title in [("open", "🔵 Open"), ("triaged", "🟡 Triaged"), ("fixing", "🟠 Fixing"), ("closed", "✅ Closed")] %}
+    {% for col_key, col_title in [
+        ("open", "🔵 待分诊"),
+        ("triaged", "🟡 已分诊"),
+        ("fixing", "🟠 修复中"),
+        ("closed", "✅ 已关闭")
+    ] %}
     <div class="kanban-col" id="kanban-col-{{ col_key }}">
         <h4>{{ col_title }} <small>({{ columns[col_key] | length }})</small></h4>
         {% for fb in columns[col_key] %}

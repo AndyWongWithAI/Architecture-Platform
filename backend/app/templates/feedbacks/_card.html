@@ -1,9 +1,9 @@
 {# 反馈卡片 partial — htmx 用来替换单张卡片 #}
 <article class="fb-card" id="fb-{{ fb.id }}">
     <div class="badges">
-        <span class="badge {{ fb.severity | severity_color }}">{{ fb.severity }}</span>
-        <span class="badge {{ fb.status | status_color }}">{{ fb.status }}</span>
-        {% if fb.decision %}<span class="badge {{ fb.decision | decision_color }}">{{ fb.decision }}</span>{% endif %}
+        <span class="badge {{ fb.severity | severity_color }}">{{ fb.severity | severity_zh }}</span>
+        <span class="badge {{ fb.status | status_color }}">{{ fb.status | status_zh }}</span>
+        {% if fb.decision %}<span class="badge {{ fb.decision | decision_color }}">{{ fb.decision | decision_zh }}</span>{% endif %}
     </div>
     <div class="summary">{{ fb.bug_summary | truncate(80) }}</div>
     <small class="secondary">
@@ -15,13 +15,13 @@
         <div class="grid">
             <select name="status" aria-label="status">
                 {% for s in ["open", "triaged", "fixing", "fixed", "wontfix"] %}
-                <option value="{{ s }}" {% if fb.status == s %}selected{% endif %}>{{ s }}</option>
+                <option value="{{ s }}" {% if fb.status == s %}selected{% endif %}>{{ s | status_zh }}</option>
                 {% endfor %}
             </select>
             <select name="decision" aria-label="decision">
-                <option value="">decision: -</option>
+                <option value="">决策: -</option>
                 {% for d in ["optimize", "fork_new", "keep_as_is", "reassess_form"] %}
-                <option value="{{ d }}" {% if fb.decision == d %}selected{% endif %}>{{ d }}</option>
+                <option value="{{ d }}" {% if fb.decision == d %}selected{% endif %}>{{ d | decision_zh }}</option>
                 {% endfor %}
             </select>
         </div>

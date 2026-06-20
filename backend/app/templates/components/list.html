@@ -12,16 +12,16 @@
 <form method="get" action="/components" class="grid">
     <select name="layer" onchange="this.form.submit()">
         <option value="">所有层级</option>
-        <option value="L0_infrastructure" {% if filters.layer == "L0_infrastructure" %}selected{% endif %}>L0 Infrastructure</option>
-        <option value="L1_platform" {% if filters.layer == "L1_platform" %}selected{% endif %}>L1 Platform</option>
-        <option value="L2_capability" {% if filters.layer == "L2_capability" %}selected{% endif %}>L2 Capability</option>
-        <option value="L3_application" {% if filters.layer == "L3_application" %}selected{% endif %}>L3 Application</option>
+        <option value="L0_infrastructure" {% if filters.layer == "L0_infrastructure" %}selected{% endif %}>L0 基础设施</option>
+        <option value="L1_platform" {% if filters.layer == "L1_platform" %}selected{% endif %}>L1 平台</option>
+        <option value="L2_capability" {% if filters.layer == "L2_capability" %}selected{% endif %}>L2 能力</option>
+        <option value="L3_application" {% if filters.layer == "L3_application" %}selected{% endif %}>L3 应用</option>
     </select>
 
     <select name="category" onchange="this.form.submit()">
         <option value="">所有分类</option>
         {% for cat in ["auth", "db", "cache", "queue", "log", "deploy", "monitor", "ui", "util", "other"] %}
-        <option value="{{ cat }}" {% if filters.category == cat %}selected{% endif %}>{{ cat }}</option>
+        <option value="{{ cat }}" {% if filters.category == cat %}selected{% endif %}>{{ cat | category_zh }}</option>
         {% endfor %}
     </select>
 
@@ -40,11 +40,11 @@
 <table>
     <thead>
         <tr>
-            <th>name</th>
-            <th>title</th>
-            <th>layer</th>
-            <th>category</th>
-            <th>资产?</th>
+            <th>组件名</th>
+            <th>标题</th>
+            <th>层级</th>
+            <th>分类</th>
+            <th>资产</th>
             <th>形态</th>
         </tr>
     </thead>
@@ -53,10 +53,14 @@
         <tr>
             <td><a href="/components/{{ c.name }}"><code>{{ c.name }}</code></a></td>
             <td>{{ c.title }}</td>
-            <td><span class="badge {{ c.layer | layer_color }}">{{ c.layer | replace('L0_', 'L0 ') | replace('L1_', 'L1 ') | replace('L2_', 'L2 ') | replace('L3_', 'L3 ') }}</span></td>
-            <td><small>{{ c.category }}</small></td>
+            <td><span class="badge {{ c.layer | layer_color }}">{{ c.layer | layer_zh }}</span></td>
+            <td><small>{{ c.category | category_zh }}</small></td>
             <td>
-                {% if c.is_asset %}<span class="badge badge-success">✓</span>{% else %}<span class="badge badge-secondary">✗</span>{% endif %}
+                {% if c.is_asset %}
+                    <span class="badge badge-success" title="真资产:可复用、跨项目" aria-label="真资产">✅ 真资产</span>
+                {% else %}
+                    <span class="badge badge-secondary" title="项目级:仅特定项目使用" aria-label="项目级">❌ 项目级</span>
+                {% endif %}
             </td>
             <td><small>{{ c.distribution_form | form_label }}</small></td>
         </tr>
