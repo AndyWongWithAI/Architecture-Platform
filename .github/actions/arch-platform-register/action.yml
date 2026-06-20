@@ -1,0 +1,114 @@
+name: 'arch-platform-register'
+description: '部署时自动登记 Deployment 到架构平台(基于 arch-platform-cli)'
+
+author: 'andywong'
+
+inputs:
+  arch-platform-url:
+    description: '架构平台 API URL,如 https://arch.intelab.cn'
+    required: true
+  api-key:
+    description: 'API Key(开放模式可留空)'
+    required: false
+    default: ''
+  component:
+    description: '组件名(如 docker / user-auth-jwt)'
+    required: true
+  host:
+    description: '主机标识(如 huawei-1 / alicloud-1)'
+    required: true
+  env:
+    description: '环境(dev / staging / prod)'
+    required: true
+  deploy-path:
+    description: '部署路径,如 /opt/services/auth'
+    required: false
+    default: ''
+  config-hash:
+    description: '配置文件 SHA256'
+    required: false
+    default: ''
+  lockfile-hash:
+    description: '依赖 lockfile SHA256(requirements.lock / package-lock.json)'
+    required: false
+    default: ''
+  build-reproducible:
+    description: '是否可 bit-by-bit 重现构建'
+    required: false
+    default: 'true'
+  install-cli:
+    description: '是否在 action 内安装 arch-platform-cli(已装可跳过)'
+    required: false
+    default: 'true'
+  fail-on-missing:
+    description: '组件不存在或 current_version_id 为空时是否失败'
+    required: false
+    default: 'true'
+
+branding:
+  icon: 'package'
+  color: 'blue'
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install arch-platform-cli
+      if: inputs.install-cli == 'true'
+      shell: bash
+      run: |
+        pip install --quiet arch-platform-cli
+        arch --version
+
+    - name: Configure CLI (URL + API Key)
+      shell: bash
+      run: |
+        arch config set-url "${{ inputs.arch-platform-url }}"
+        if [ -n "${{ inputs.api-key }}" ]; then
+          arch config set-key "${{ inputs.api-key }}"
+        fi
+        arch config show
+
+    - name: Health check
+      shell: bash
+      run: arch health
+
+    - name: Get component + current version
+      id: get_version
+      shell: bash
+      run: |
+        set -e
+        COMP_DATA=$(arch component get "${{ inputs.component }}" --format json)
+        VERSION_ID=$(echo "$COMP_DATA" | python3 -c "import sys,json; print(json.load(sys.stdin).get('current_version_id',''))")
+
+        if [ -z "$VERSION_ID" ]; then
+          if [ "${{ inputs.fail-on-missing }}" = "true" ]; then
+            echo "::error::组件 ${{ inputs.component }} 没有 current_version_id(可能未登记或没有发布版本)"
+            exit 1
+          else
+            echo "::warning::组件 ${{ inputs.component }} 没有 current_version_id,跳过"
+            echo "version_id=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+        fi
+
+        VERSION_STR=$(echo "$COMP_DATA" | python3 -c "import sys,json,urllib.request; vid=json.load(sys.stdin)['current_version_id']; print(urllib.request.urlopen('${{ inputs.arch-platform-url }}/api/v1/versions/'+vid).read().decode() and 'see-version-id')")
+        echo "version_id=$VERSION_ID" >> "$GITHUB_OUTPUT"
+        echo "✓ 找到 current version:$VERSION_ID"
+
+    - name: Register deployment
+      shell: bash
+      if: steps.get_version.outputs.version_id != ''
+      run: |
+        arch deployment create "${{ steps.get_version.outputs.version_id }}" \
+          --env "${{ inputs.env }}" \
+          --host "${{ inputs.host }}" \
+          --path "${{ inputs.deploy-path }}" \
+          --config-hash "${{ inputs.config-hash }}" \
+          --lockfile-hash "${{ inputs.lockfile-hash }}" \
+          --reproducible=${{ inputs.build-reproducible }} \
+          --deployed-by "github-actions(${GITHUB_REPOSITORY}@${GITHUB_SHA})"

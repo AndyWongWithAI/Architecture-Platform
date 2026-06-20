@@ -1,0 +1,73 @@
+# examples/deploy-with-arch-register.yml
+# 完整示例:把部署流水线接到架构平台
+#
+# 触发:tag v* 推送时自动部署 + 登记
+# 流程:
+#   1. 跑测试
+#   2. 打包 Docker 镜像
+#   3. 推送到镜像仓库
+#   4. SSH 到目标服务器部署
+#   5. 登记 Deployment 到架构平台(arch-platform-register)
+
+name: deploy
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run tests
+        run: |
+          pip install -e ".[dev]"
+          pytest tests/ -v
+
+      - name: Build Docker image
+        run: docker build -t my-service:${{ github.ref_name }} .
+
+      - name: Compute config hash
+        id: hash
+        run: |
+          CONFIG_HASH=$(sha256sum config.yaml | awk '{print "sha256:"$1}')
+          echo "config=$CONFIG_HASH" >> "$GITHUB_OUTPUT"
+
+      - name: Register deployment to architecture platform
+        uses: AndyWongWithAI/Architecture-Platform/.github/actions/arch-platform-register@v1
+        with:
+          arch-platform-url: ${{ secrets.ARCH_PLATFORM_URL }}
+          api-key: ${{ secrets.ARCH_PLATFORM_API_KEY }}
+          component: my-service              # 必须先在架构平台登记过
+          host: huawei-1
+          env: prod
+          deploy-path: /opt/services/my-service
+          config-hash: ${{ steps.hash.outputs.config }}
+          lockfile-hash: sha256:${{ hashFiles('requirements.lock') }}
+          build-reproducible: 'true'
+
+      - name: SSH deploy
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HOST }}
+          username: root
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd /opt/services/my-service
+            docker compose pull
+            docker compose up -d
+            sleep 5
+            curl -fsS http://127.0.0.1:8080/healthz || exit 1
+
+# ——— 完整 SDLC 集成示例 ———
+# Phase 2(设计定稿):用 arch-platform-create-version 登记新版本
+# Phase 6(部署):用 arch-platform-register 登记 Deployment
+# Phase 8(Bug 反馈):用 arch-platform-feedback 登记 Feedback

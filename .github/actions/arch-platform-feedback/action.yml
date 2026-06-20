@@ -1,0 +1,102 @@
+name: 'arch-platform-feedback'
+description: '登记 Bug 反馈到架构平台(基于 arch-platform-cli)'
+
+author: 'andywong'
+
+inputs:
+  arch-platform-url:
+    description: '架构平台 API URL'
+    required: true
+  api-key:
+    description: 'API Key(开放模式可留空)'
+    required: false
+    default: ''
+  component:
+    description: '组件名(用于查询 current_version_id)'
+    required: true
+  version-id:
+    description: '指定 version_id(覆盖 component 查询)'
+    required: false
+    default: ''
+  summary:
+    description: 'Bug 摘要'
+    required: true
+  root-cause:
+    description: '根因分析'
+    required: false
+    default: ''
+  fix-plan:
+    description: '修复方案'
+    required: false
+    default: ''
+  severity:
+    description: '严重程度(low / medium / high / critical)'
+    required: false
+    default: 'medium'
+  reporter:
+    description: '报告人'
+    required: false
+    default: 'github-actions'
+  reused-in:
+    description: '影响面项目名(逗号分隔)'
+    required: false
+    default: ''
+  install-cli:
+    description: '是否在 action 内安装 arch-platform-cli'
+    required: false
+    default: 'true'
+
+branding:
+  icon: 'alert-circle'
+  color: 'red'
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install arch-platform-cli
+      if: inputs.install-cli == 'true'
+      shell: bash
+      run: pip install --quiet arch-platform-cli
+
+    - name: Configure CLI
+      shell: bash
+      run: |
+        arch config set-url "${{ inputs.arch-platform-url }}"
+        if [ -n "${{ inputs.api-key }}" ]; then
+          arch config set-key "${{ inputs.api-key }}"
+        fi
+
+    - name: Resolve version_id
+      id: resolve
+      shell: bash
+      run: |
+        if [ -n "${{ inputs.version-id }}" ]; then
+          echo "version_id=${{ inputs.version-id }}" >> "$GITHUB_OUTPUT"
+        else
+          COMP_DATA=$(arch component get "${{ inputs.component }}" --format json)
+          VERSION_ID=$(echo "$COMP_DATA" | python3 -c "import sys,json; print(json.load(sys.stdin).get('current_version_id',''))")
+          if [ -z "$VERSION_ID" ]; then
+            echo "::error::组件 ${{ inputs.component }} 没有 current_version_id"
+            exit 1
+          fi
+          echo "version_id=$VERSION_ID" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Create feedback
+      shell: bash
+      run: |
+        CMD="arch feedback create \"${{ steps.resolve.outputs.version_id }}\" \
+          --summary \"${{ inputs.summary }}\" \
+          --severity \"${{ inputs.severity }}\" \
+          --reporter \"${{ inputs.reporter }}\""
+
+        [ -n "${{ inputs.root-cause }}" ] && CMD="$CMD --root-cause \"${{ inputs.root-cause }}\""
+        [ -n "${{ inputs.fix-plan }}" ] && CMD="$CMD --fix-plan \"${{ inputs.fix-plan }}\""
+        [ -n "${{ inputs.reused-in }}" ] && CMD="$CMD --reused-in \"${{ inputs.reused-in }}\""
+
+        eval $CMD

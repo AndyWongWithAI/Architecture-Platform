@@ -1,0 +1,86 @@
+name: 'arch-platform-create-version'
+description: '在架构平台登记新版本(基于 arch-platform-cli)'
+
+author: 'andywong'
+
+inputs:
+  arch-platform-url:
+    description: '架构平台 API URL'
+    required: true
+  api-key:
+    description: 'API Key(开放模式可留空)'
+    required: false
+    default: ''
+  component:
+    description: '组件名'
+    required: true
+  version:
+    description: 'SemVer 版本号,如 1.2.0'
+    required: true
+  semver-intent:
+    description: '发版意图(major / minor / patch)'
+    required: true
+  changelog:
+    description: '变更说明'
+    required: true
+  breaking-changes:
+    description: '破坏性变更(major 必填)'
+    required: false
+    default: ''
+  compatibility-window:
+    description: '兼容期,如 "LTS until 2027-06"'
+    required: false
+    default: ''
+  replaces:
+    description: '替代的旧版本号'
+    required: false
+    default: ''
+  install-cli:
+    description: '是否在 action 内安装 arch-platform-cli'
+    required: false
+    default: 'true'
+
+branding:
+  icon: 'tag'
+  color: 'green'
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install arch-platform-cli
+      if: inputs.install-cli == 'true'
+      shell: bash
+      run: pip install --quiet arch-platform-cli
+
+    - name: Configure CLI
+      shell: bash
+      run: |
+        arch config set-url "${{ inputs.arch-platform-url }}"
+        if [ -n "${{ inputs.api-key }}" ]; then
+          arch config set-key "${{ inputs.api-key }}"
+        fi
+
+    - name: Create version
+      shell: bash
+      run: |
+        # major 必填 breaking_changes 校验(跟后端一致)
+        if [ "${{ inputs.semver-intent }}" = "major" ] && [ -z "${{ inputs.breaking-changes }}" ]; then
+          echo "::error::semver_intent=major 必须填写 breaking-changes"
+          exit 1
+        fi
+
+        CMD="arch version create \"${{ inputs.component }}\" \
+          --version \"${{ inputs.version }}\" \
+          --intent \"${{ inputs.semver-intent }}\" \
+          --changelog \"${{ inputs.changelog }}\""
+
+        [ -n "${{ inputs.breaking-changes }}" ] && CMD="$CMD --breaking-changes \"${{ inputs.breaking-changes }}\""
+        [ -n "${{ inputs.compatibility-window }}" ] && CMD="$CMD --compatibility-window \"${{ inputs.compatibility-window }}\""
+        [ -n "${{ inputs.replaces }}" ] && CMD="$CMD --replaces \"${{ inputs.replaces }}\""
+
+        eval $CMD
