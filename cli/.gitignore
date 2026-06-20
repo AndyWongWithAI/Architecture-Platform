@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Build / dist
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Test
+.pytest_cache/
+.tox/
+
+# Coverage
+.coverage
+htmlcov/
+
+# Virtual env
+.venv/
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# arch-platform-cli specific
+*.aip-lock.toml
+test-aip-lock.toml

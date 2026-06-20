@@ -1,0 +1,35 @@
+# arch-platform-cli CI:跑 pytest
+name: test
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cli/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'cli/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cli
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Run pytest
+        env:
+          ARCH_TEST_URL: ${{ secrets.ARCH_TEST_URL || 'http://127.0.0.1:8088' }}
+        run: pytest tests/ -v
