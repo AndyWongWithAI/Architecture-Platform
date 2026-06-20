@@ -83,7 +83,7 @@ async def components_list(
     request: Request,
     layer: Optional[str] = None,
     category: Optional[str] = None,
-    is_asset: Optional[bool] = None,
+    is_asset: Optional[str] = None,  # FB-K 修复(2026-06-21):改为 str,内部判断 "true"/"false",避免空字符串触发 422
     q: Optional[str] = None,
 ):
     params = {"limit": 200}
@@ -91,8 +91,11 @@ async def components_list(
         params["layer"] = layer
     if category:
         params["category"] = category
-    if is_asset is not None:
-        params["is_asset"] = "true" if is_asset else "false"
+    # FB-K:is_asset 用字符串手动判断("true"/"false" → bool;"" / 其他 → 不过滤)
+    if is_asset == "true":
+        params["is_asset"] = "true"
+    elif is_asset == "false":
+        params["is_asset"] = "false"
     if q:
         params["q"] = q
 
