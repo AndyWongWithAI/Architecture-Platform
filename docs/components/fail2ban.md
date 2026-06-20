@@ -20,6 +20,7 @@ repo_url: ""
 is_asset: true
 distribution_form: package
 interface_contract: ""
+knowledge_artifact: false
 ---
 
 # fail2ban SSH 防爆破

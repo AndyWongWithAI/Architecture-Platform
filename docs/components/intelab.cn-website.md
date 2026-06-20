@@ -23,6 +23,7 @@ repo_url: ""
 is_asset: false
 distribution_form: ""
 interface_contract: ""
+knowledge_artifact: false
 ---
 
 # intelab.cn 占位网站

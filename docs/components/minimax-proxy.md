@@ -20,6 +20,7 @@ repo_url: ""
 is_asset: false
 distribution_form: ""
 interface_contract: ""
+knowledge_artifact: false
 ---
 
 # MiniMax API 代理服务

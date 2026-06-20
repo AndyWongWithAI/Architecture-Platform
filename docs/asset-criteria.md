@@ -40,16 +40,34 @@
    + 必填 install_command
 ```
 
-## distribution_form 选型指南
+## distribution_form 选型指南(11 个 enum)
 
 `is_asset=true` 时必填,选最贴近实际复用形态的一个:
 
 | 值 | 含义 | 例子 |
 |----|------|------|
 | `package` | 系统包或语言包(apt / pip / npm / cargo) | docker / nginx / user-auth-jwt 库 |
-| `container` | Docker 镜像 | ghcr.io/andywong/user-mgmt:1.0.0 |
-| `source` | 源码或脚本(git clone / curl) | 部署脚本、配置文件模板 |
+| `container` | Docker / OCI 镜像 | ghcr.io/andywong/user-mgmt:1.0.0 |
+| `binary` | 可执行二进制(Release 下载 / go install 产物) | kubectl / terraform / gh CLI |
+| `source` | 源码(git clone + build) | 完整可 build 的源码仓库 |
 | `http_api` | HTTP API 服务 | intelab.cn-website 这类服务的 API(必须填 interface_contract 指向 OpenAPI Spec) |
+| `schema` | 数据结构定义(DDL / proto / Prisma / Avro) | PostgreSQL DDL、protobuf 文件 |
+| `dataset` | 数据集 / 训练样本 | CSV/Parquet、标注样本 |
+| `config_template` | 配置模板 | nginx.conf / systemd unit / WireGuard peer 配置 |
+| `iac` | 基础设施即代码 | Terraform module / Pulumi / Ansible playbook |
+| `skill` | Claude Code skill + agent + slash command | `/init` `/review` 这类 skill |
+| `tool` | MCP tool(可被 AI 调用的工具) | 我们项目里的 Bash / Read / WebFetch |
+
+## knowledge_artifact: 另一个维度
+
+`distribution_form` 描述的是"资产怎么被消费",`knowledge_artifact` 标记的是**"是不是 AI 上下文资产"**。两者正交:
+
+| knowledge_artifact | 含义 | 典型 distribution_form |
+|--------------------|------|------------------------|
+| `true` | AI 上下文资产(skill / tool / memory / agent 文档 / prompt template) | `skill` / `tool` |
+| `false` | 传统代码资产(默认) | `package` / `container` / `binary` / `source` / `http_api` / `schema` / `dataset` / `config_template` / `iac` |
+
+**为什么单独成一个字段**:`distribution_form` 已经被"消费形态"维度占用(11 个 enum 已足够);"是不是 AI 上下文资产"是另一个正交维度,不应该塞进同一个 enum。Phase 1 实现时,Web UI 可以基于这个字段做视觉区分(比如 AI 资产用不同图标)。
 
 ## 各层的资产判定倾向
 

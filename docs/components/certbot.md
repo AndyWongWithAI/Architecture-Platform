@@ -21,6 +21,7 @@ repo_url: https://github.com/certbot/certbot
 is_asset: true
 distribution_form: package
 interface_contract: ""
+knowledge_artifact: false
 ---
 
 # Certbot / Let's Encrypt SSL 证书自动化

@@ -32,12 +32,10 @@
 | 复合 (`atomic=false`) | 1 |
 | **真资产 (`is_asset=true`)** | **7** |
 | **项目级 (`is_asset=false`)** | **2**(minimax-proxy / intelab.cn-website) |
-| `distribution_form=package` | 5 |
-| `distribution_form=source` | 2 |
-| L0 | 2 |
-| L1 | 5 |
-| L2 | 1 |
-| L3 | 1 |
+| `distribution_form=package` | 5(docker / nginx / certbot / ufw / fail2ban) |
+| `distribution_form=binary` | 1(ubuntu-linux) |
+| `distribution_form=config_template` | 1(ssh-key-auth) |
+| **AI 上下文资产 (`knowledge_artifact=true`)** | **0**(当前都是传统代码) |
 
 > 判定依据见 [`../asset-criteria.md`](../asset-criteria.md)。
 
@@ -62,8 +60,9 @@ usage_example: ""    # 一行使用示例
 status: stable       # draft/stable/deprecated/archived
 repo_url: ""         # GitHub repo
 is_asset: true       # 是否可复用资产(CLAUDE.md 资产原则);false=项目级代码,登记仅为追溯
-distribution_form: package  # package/container/source/http_api;is_asset=true 时必填
+distribution_form: package  # 11 个 enum:package/container/binary/source/http_api/schema/dataset/config_template/iac/skill/tool;is_asset=true 时必填
 interface_contract: ""      # OpenAPI Spec URL 或接口契约文本;http_api 时必填
+knowledge_artifact: false   # true=AI 上下文资产(skill/tool/memory);跟 distribution_form 正交
 ---
 ```
 

@@ -19,8 +19,9 @@ usage_example: ""
 status: stable
 repo_url: ""
 is_asset: true
-distribution_form: source
+distribution_form: binary
 interface_contract: ""
+knowledge_artifact: false
 ---
 
 # Ubuntu 24.04 LTS(Noble Numbat)

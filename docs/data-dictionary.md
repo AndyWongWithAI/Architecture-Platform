@@ -54,8 +54,9 @@
 | 字段 | 类型 | 必填 | 默认 | 含义 | 约束 | 例子 |
 |------|------|------|------|------|------|------|
 | `is_asset` | boolean | ✅ | `true` | 是否可复用资产 | `false` = 项目级代码,登记仅为追溯,不复用;搜索默认过滤、`arch use` 警告 | `true` |
-| `distribution_form` | enum | 条件 | — | 资产分发形态 | `is_asset=true` 时必填;`package` / `container` / `source` / `http_api` | `package` |
+| `distribution_form` | enum | 条件 | — | 资产分发形态(11 个 enum) | `is_asset=true` 时必填;`package` / `container` / `binary` / `source` / `http_api` / `schema` / `dataset` / `config_template` / `iac` / `skill` / `tool` | `package` |
 | `interface_contract` | string | 条件 | null | 接口契约 | `distribution_form=http_api` 时必填(URL 指向 OpenAPI Spec);其他可填文本 | `https://.../openapi.yaml` |
+| `knowledge_artifact` | boolean | ✅ | `false` | 是否 AI 上下文资产 | `true` = AI 上下文类资产(skill / tool / memory / agent 文档),跟传统代码资产是不同维度;跟 `distribution_form` 正交 | `false` |
 
 ### 复用元数据(§12)
 

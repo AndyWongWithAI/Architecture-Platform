@@ -21,6 +21,7 @@ repo_url: ""
 is_asset: true
 distribution_form: package
 interface_contract: ""
+knowledge_artifact: false
 ---
 
 # Nginx Web 服务器 / 反向代理
