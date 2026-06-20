@@ -7,11 +7,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models import Component, Version, Layer, ComponentStatus
+from ..models import Component, Version, Layer, ComponentStatus, SemverIntent
 from ..schemas import (
     ComponentOut, ComponentDetail, ComponentList,
     ComponentTreeNode, ComponentUsage,
     ComponentCreate, ComponentUpdate,
+    VersionCreate, VersionOut,
 )
 from ..auth import require_api_key
 
@@ -234,3 +235,69 @@ def update_component(
 def _gen_uuid() -> str:
     import uuid
     return str(uuid.uuid4())
+
+
+@router.post(
+    "/{component_id}/versions",
+    response_model=VersionOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_api_key)],
+)
+def create_version(
+    component_id: str,
+    payload: VersionCreate,
+    db: Session = Depends(get_db),
+):
+    """为组件创建新版本(需要 API Key)
+
+    业务规则:
+    - SemVer 格式由 Pydantic 校验(已配)
+    - semver_intent=major 时,breaking_changes 必填(CLAUDE.md 一致性)
+    - 创建后自动更新 Component.current_version_id 指向新版本
+    """
+    comp = db.query(Component).filter(
+        (Component.id == component_id) | (Component.name == component_id)
+    ).first()
+    if not comp:
+        raise HTTPException(404, "component not found")
+
+    # major 必须填 breaking_changes
+    if payload.semver_intent == SemverIntent.major and not payload.breaking_changes:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "semver_intent=major requires breaking_changes to be set (CLAUDE.md consistency)",
+        )
+
+    # 组件内 version 唯一性
+    existing = db.query(Version).filter(
+        Version.component_id == comp.id,
+        Version.version == payload.version,
+    ).first()
+    if existing:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"version '{payload.version}' already exists for component '{comp.name}'",
+        )
+
+    ver = Version(
+        id=_gen_uuid(),
+        component_id=comp.id,
+        version=payload.version,
+        semver_intent=payload.semver_intent,
+        design_doc=payload.design_doc,
+        design_decided_at=None,
+        replaces_version=payload.replaces_version,
+        changelog=payload.changelog,
+        breaking_changes=payload.breaking_changes,
+        deprecates=payload.deprecates or [],
+        compatibility_window=payload.compatibility_window,
+    )
+    db.add(ver)
+    db.flush()  # 拿 id 但不 commit
+
+    # 更新 Component.current_version_id
+    comp.current_version_id = ver.id
+
+    db.commit()
+    db.refresh(ver)
+    return ver

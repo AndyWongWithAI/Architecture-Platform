@@ -1,13 +1,18 @@
-"""Feedback routes — GET"""
+"""Feedback routes — GET + PATCH"""
+from datetime import datetime
 from typing import Optional
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import Feedback, FeedbackStatus
-from ..schemas import FeedbackList
+from ..schemas import FeedbackList, FeedbackOut, FeedbackUpdate
+from ..auth import require_api_key
 
 router = APIRouter()
+
+
+# ===== 读操作(GET)=====
 
 
 @router.get("", response_model=FeedbackList)
@@ -27,3 +32,47 @@ def list_feedbacks(
     total = query.count()
     items = query.order_by(Feedback.created_at.desc()).offset(offset).limit(limit).all()
     return {"items": items, "total": total}
+
+
+# ===== 写操作(PATCH)— Phase 1.1 =====
+
+
+@router.patch(
+    "/{feedback_id}",
+    response_model=FeedbackOut,
+    dependencies=[Depends(require_api_key)],
+)
+def update_feedback(
+    feedback_id: str,
+    payload: FeedbackUpdate,
+    db: Session = Depends(get_db),
+):
+    """更新反馈状态/决策(需要 API Key)
+
+    业务规则(CLAUDE.md 反馈原则闭环):
+    - status 转 fixed/wontfix 前必须填 decision
+    - 填 decision 自动设 decided_at
+    """
+    fb = db.query(Feedback).filter(Feedback.id == feedback_id).first()
+    if not fb:
+        raise HTTPException(404, "feedback not found")
+
+    update_data = payload.model_dump(exclude_unset=True)
+    for key, val in update_data.items():
+        setattr(fb, key, val)
+
+    # 转 closed 状态前必须填 decision
+    new_status = fb.status
+    if new_status in (FeedbackStatus.fixed, FeedbackStatus.wontfix) and not fb.decision:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            f"decision is required before status transitions to '{new_status.value}' (CLAUDE.md feedback principle closure)",
+        )
+
+    # 填 decision 自动设 decided_at
+    if payload.decision is not None and not fb.decided_at:
+        fb.decided_at = datetime.utcnow()
+
+    db.commit()
+    db.refresh(fb)
+    return fb
