@@ -594,11 +594,11 @@ components:
       properties:
         name:
           type: string
-          pattern: '^[a-z][a-z0-9-]*$'
+          pattern: '^[a-z][a-z0-9.-]*$'
           minLength: 2
           maxLength: 64
-          description: kebab-case,唯一
-          examples: ["user-auth-jwt"]
+          description: kebab-case + 域名点号,唯一
+          examples: ["user-auth-jwt", "intelab.cn-website"]
         title:
           type: string
           maxLength: 128

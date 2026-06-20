@@ -27,7 +27,7 @@
 | 字段 | 类型 | 必填 | 默认 | 含义 | 约束 | 例子 |
 |------|------|------|------|------|------|------|
 | `id` | UUID | ✅ | gen | 主键 | — | — |
-| `name` | string | ✅ | — | 组件唯一标识 | kebab-case,`^[a-z][a-z0-9-]*$`,2-64 字符,**全局唯一** | `user-auth-jwt` |
+| `name` | string | ✅ | — | 组件唯一标识 | kebab-case + 域名点号,`^[a-z][a-z0-9.-]*$`,2-64 字符,**全局唯一** | `user-auth-jwt` / `intelab.cn-website` |
 | `title` | string | ✅ | — | 人类可读标题 | ≤ 128 字符 | `基于 JWT 的用户认证` |
 | `positioning` | text | ✅ | — | 定位描述 | ≥ 10 字符,≤ 500,**CLAUDE.md 定位稳定性:不可变** | `面向 Web 项目的无状态用户认证,支持刷新令牌` |
 | `status` | enum | ✅(读)/✅(写更新) | `draft` | 生命周期状态 | `draft` / `stable` / `deprecated` / `archived` | `stable` |
