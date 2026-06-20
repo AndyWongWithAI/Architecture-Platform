@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}架构平台{% endblock %} · 架构平台</title>
+
+    <!-- PicoCSS v2(CDN) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+
+    <!-- 自定义样式 -->
+    <link rel="stylesheet" href="/static/css/custom.css">
+
+    <!-- HTMX 2.x(CDN) -->
+    <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.1/dist/htmx.min.js" defer></script>
+</head>
+<body>
+    <!-- 顶栏导航 -->
+    <header class="container-fluid site-header">
+        <nav class="container">
+            <ul>
+                <li>
+                    <a href="/" class="brand"><strong>🏛️ 架构平台</strong></a>
+                </li>
+            </ul>
+            <ul class="nav-links">
+                <li><a href="/">总览</a></li>
+                <li><a href="/components">组件</a></li>
+                <li><a href="/feedbacks">反馈</a></li>
+                <li><a href="/deployments">部署</a></li>
+                <li>
+                    <form role="search" action="/search" method="get" style="margin: 0;">
+                        <input
+                            type="search"
+                            name="q"
+                            placeholder="搜索组件 / 版本 / 反馈..."
+                            value="{{ request.query_params.get('q', '') }}"
+                            aria-label="搜索">
+                    </form>
+                </li>
+                <li>
+                    <a href="/docs" target="_blank" rel="noopener" class="secondary">API</a>
+                </li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- 主内容 -->
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="container site-footer">
+        <small>
+            架构平台 · CLAUDE.md 资产/反馈/复用原则 ·
+            <a href="/healthz">健康</a> ·
+            <a href="/docs" target="_blank" rel="noopener">API</a>
+        </small>
+    </footer>
+</body>
+</html>

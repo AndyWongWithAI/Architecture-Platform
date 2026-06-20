@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}搜索{% endblock %}
+
+{% block content %}
+<hgroup>
+    <h1>搜索结果</h1>
+    {% if q %}
+    <p>关键字: <code>{{ q }}</code> · 共 {{ data.total }} 个匹配</p>
+    {% else %}
+    <p>在顶栏搜索框输入关键字</p>
+    {% endif %}
+</hgroup>
+
+{% if data %}
+<div class="grid">
+    <!-- 组件 -->
+    <article>
+        <header><h4>🔧 组件({{ data.components | length }})</h4></header>
+        {% if data.components %}
+        <ul>
+            {% for c in data.components %}
+            <li>
+                <a href="/components/{{ c.name }}"><code>{{ c.name }}</code></a>
+                {{ c.title | truncate(60) }}
+                <small class="secondary">{{ c.layer }}</small>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p><em>无组件匹配</em></p>
+        {% endif %}
+    </article>
+
+    <!-- 版本 -->
+    <article>
+        <header><h4>🏷️ 版本({{ data.versions | length }})</h4></header>
+        {% if data.versions %}
+        <ul>
+            {% for v in data.versions %}
+            <li>
+                <code>{{ v.version }}</code> · {{ v.changelog | truncate(60) }}
+                {% if v.breaking_changes %}<span class="badge badge-warning">⚠ breaking</span>{% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p><em>无版本匹配</em></p>
+        {% endif %}
+    </article>
+
+    <!-- 反馈 -->
+    <article>
+        <header><h4>🐛 反馈({{ data.feedbacks | length }})</h4></header>
+        {% if data.feedbacks %}
+        <ul>
+            {% for fb in data.feedbacks %}
+            <li>
+                <span class="badge {{ fb.severity | severity_color }}">{{ fb.severity }}</span>
+                {{ fb.bug_summary | truncate(60) }}
+                <small class="secondary">— {{ fb.reporter }}</small>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p><em>无反馈匹配</em></p>
+        {% endif %}
+    </article>
+</div>
+{% elif q %}
+<p><em>没有找到匹配的内容</em></p>
+{% endif %}
+{% endblock %}

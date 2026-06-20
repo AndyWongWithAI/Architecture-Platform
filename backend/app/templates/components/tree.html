@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}{{ root_name }} 依赖树{% endblock %}
+
+{% macro render_node(node, indent=0) %}
+{% set comp = node.component %}
+{% if comp %}
+<li>
+    {% if comp.atomic %}🟢{% else %}🔵{% endif %}
+    <a href="/components/{{ comp.name }}"><code>{{ comp.name }}</code></a>
+    <small class="secondary">({{ comp.layer }})</small>
+    {% if node.children %}
+    <ul>
+        {% for child in node.children %}
+            {{ render_node(child, indent + 1) }}
+        {% endfor %}
+    </ul>
+    {% endif %}
+</li>
+{% endif %}
+{% endmacro %}
+
+{% block content %}
+<hgroup>
+    <h1>依赖树: {{ root_name }}</h1>
+    <p>递归展开 <code>composed_of</code>,展示组件 + 子组件 + 孙子组件层级</p>
+</hgroup>
+
+<article>
+    {% if tree %}
+    <ul>
+        {{ render_node(tree) }}
+    </ul>
+    {% else %}
+    <p><em>无法获取依赖树</em></p>
+    {% endif %}
+</article>
+
+<p>
+    <a href="/components/{{ root_name }}" role="button" class="secondary outline">← 返回详情</a>
+</p>
+{% endblock %}

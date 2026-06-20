@@ -1,0 +1,114 @@
+/* 架构平台自定义样式 — PicoCSS 基础上微调 */
+
+/* 顶栏 */
+.site-header {
+    background: var(--pico-card-background-color);
+    border-bottom: 1px solid var(--pico-muted-border-color);
+    padding: 0.5rem 0;
+    margin-bottom: 1.5rem;
+}
+
+.site-header nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.site-header nav ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.site-header .brand {
+    text-decoration: none;
+    color: var(--pico-h1-color);
+}
+
+.site-header .nav-links li a {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    text-decoration: none;
+    color: var(--pico-color);
+}
+
+.site-header .nav-links li a:hover {
+    background: var(--pico-secondary-background);
+}
+
+.site-header .nav-links li a[role="button"],
+.site-header .nav-links li a.secondary {
+    padding: 0.25rem 0.75rem;
+}
+
+.site-header input[type="search"] {
+    margin: 0;
+    height: 2rem;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.9em;
+    min-width: 240px;
+}
+
+/* Badge 颜色类(自定义 PicoCSS 颜色) */
+.badge-success {
+    background: var(--pico-color-green-550);
+    color: white;
+}
+
+.badge-error,
+.badge-danger {
+    background: var(--pico-color-red-550);
+    color: white;
+}
+
+.badge-warning {
+    background: var(--pico-color-amber-450);
+    color: black;
+}
+
+.badge-secondary {
+    background: var(--pico-color-grey-500);
+    color: white;
+}
+
+/* 卡片小调整 */
+article {
+    margin-bottom: 1rem;
+}
+
+article > header h4 {
+    margin: 0;
+}
+
+/* 表格紧凑 */
+table {
+    font-size: 0.95em;
+}
+
+/* 页脚 */
+.site-footer {
+    margin-top: 3rem;
+    padding: 1.5rem 0;
+    text-align: center;
+    color: var(--pico-muted-color);
+    border-top: 1px solid var(--pico-muted-border-color);
+}
+
+/* 看板样式(已在 kanban.html 内联,这里保留备份) */
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .site-header .nav-links {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .site-header input[type="search"] {
+        width: 100%;
+    }
+}

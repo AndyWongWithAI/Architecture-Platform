@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}{{ c.name }}{% endblock %}
+
+{% block content %}
+<hgroup>
+    <h1>{{ c.title }}</h1>
+    <p>
+        <code>{{ c.name }}</code>
+        <span class="badge {{ c.layer | layer_color }}">{{ c.layer }}</span>
+        <span class="badge">{{ c.category }}</span>
+        {% if c.is_asset %}<span class="badge badge-success">✓ 真资产</span>{% else %}<span class="badge badge-secondary">✗ 项目级</span>{% endif %}
+        <span class="badge">{{ c.distribution_form | form_label }}</span>
+        {% if c.knowledge_artifact %}<span class="badge badge-warning">🧠 AI 资产</span>{% endif %}
+    </p>
+</hgroup>
+
+<article>
+    <h4>📌 定位</h4>
+    <p>{{ c.positioning }}</p>
+</article>
+
+<div class="grid">
+    <article>
+        <h4>📦 复用信息</h4>
+        <ul>
+            <li><strong>语言:</strong> {{ c.language or '-' }}</li>
+            <li><strong>包名:</strong> <code>{{ c.package_name or '-' }}</code></li>
+            <li><strong>安装:</strong> <code>{{ c.install_command or '-' }}</code></li>
+            <li><strong>用法:</strong> <code>{{ c.usage_example or '-' }}</code></li>
+            {% if c.repo_url %}
+            <li><strong>仓库:</strong> <a href="{{ c.repo_url }}" target="_blank" rel="noopener">{{ c.repo_url }}</a></li>
+            {% endif %}
+            <li><strong>状态:</strong> {{ c.status }}</li>
+        </ul>
+    </article>
+
+    <article>
+        <h4>🏗️ 结构</h4>
+        <ul>
+            <li><strong>原子性:</strong> {% if c.atomic %}🟢 原子组件{% else %}🔵 复合组件{% endif %}</li>
+            <li><strong>子组件数:</strong> {{ c.composed_of | length }}</li>
+            {% if c.composed_of %}
+            <li><strong>子组件:</strong>
+                <ul>
+                {% for child in c.composed_of %}
+                    <li><code>{{ child.component_id | short_id }}</code> ({{ child.version_constraint }})</li>
+                {% endfor %}
+                </ul>
+            </li>
+            {% endif %}
+            <li><strong>Tags:</strong>
+                {% for tag in c.tags %}<span class="badge">{{ tag }}</span>{% endfor %}
+            </li>
+        </ul>
+        <a href="/components/{{ c.name }}/tree" role="button" class="secondary outline">展开依赖树 →</a>
+    </article>
+</div>
+
+<!-- 版本历史 -->
+<h3>版本历史</h3>
+{% if versions %}
+<table>
+    <thead>
+        <tr><th>version</th><th>intent</th><th>changelog</th><th>breaking</th><th>时间</th></tr>
+    </thead>
+    <tbody>
+    {% for v in versions %}
+        <tr>
+            <td><code>{{ v.version }}</code></td>
+            <td><span class="badge">{{ v.semver_intent }}</span></td>
+            <td>{{ v.changelog | truncate(60) }}</td>
+            <td>{% if v.breaking_changes %}<span class="badge {{ 'badge-error' if v.semver_intent == 'major' else 'badge-warning' }}">⚠</span>{% else %}-{% endif %}</td>
+            <td><small>{{ v.created_at | format_dt }}</small></td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p><em>暂无版本记录(用 <code>arch version create {{ c.name }} --version 1.0.0 --intent major --changelog "..." --breaking-changes "..."</code> 登记)</em></p>
+{% endif %}
+
+<!-- 关联反馈 -->
+<h3>关联反馈({{ feedbacks | length }})</h3>
+{% if feedbacks %}
+<table>
+    <thead><tr><th>severity</th><th>summary</th><th>status</th><th>reporter</th></tr></thead>
+    <tbody>
+    {% for fb in feedbacks %}
+        <tr>
+            <td><span class="badge {{ fb.severity | severity_color }}">{{ fb.severity }}</span></td>
+            <td>{{ fb.bug_summary | truncate(60) }}</td>
+            <td><span class="badge {{ fb.status | status_color }}">{{ fb.status }}</span></td>
+            <td><small>{{ fb.reporter }}</small></td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p><em>无关联反馈</em></p>
+{% endif %}
+
+<hr>
+<p>
+    <a href="/components" role="button" class="secondary outline">← 返回列表</a>
+    <a href="/components/{{ c.name }}/tree" role="button" class="secondary outline">依赖树</a>
+</p>
+{% endblock %}

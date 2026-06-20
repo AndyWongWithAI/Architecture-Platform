@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}组件列表{% endblock %}
+
+{% block content %}
+<hgroup>
+    <h1>组件列表</h1>
+    <p>{{ total }} 个组件{% if filters.q %} · 搜索 "{{ filters.q }}"{% endif %}</p>
+</hgroup>
+
+<!-- 过滤表单 -->
+<form method="get" action="/components" class="grid">
+    <select name="layer" onchange="this.form.submit()">
+        <option value="">所有层级</option>
+        <option value="L0_infrastructure" {% if filters.layer == "L0_infrastructure" %}selected{% endif %}>L0 Infrastructure</option>
+        <option value="L1_platform" {% if filters.layer == "L1_platform" %}selected{% endif %}>L1 Platform</option>
+        <option value="L2_capability" {% if filters.layer == "L2_capability" %}selected{% endif %}>L2 Capability</option>
+        <option value="L3_application" {% if filters.layer == "L3_application" %}selected{% endif %}>L3 Application</option>
+    </select>
+
+    <select name="category" onchange="this.form.submit()">
+        <option value="">所有分类</option>
+        {% for cat in ["auth", "db", "cache", "queue", "log", "deploy", "monitor", "ui", "util", "other"] %}
+        <option value="{{ cat }}" {% if filters.category == cat %}selected{% endif %}>{{ cat }}</option>
+        {% endfor %}
+    </select>
+
+    <select name="is_asset" onchange="this.form.submit()">
+        <option value="">所有</option>
+        <option value="true" {% if filters.is_asset == true %}selected{% endif %}>真资产</option>
+        <option value="false" {% if filters.is_asset == false %}selected{% endif %}>项目级</option>
+    </select>
+
+    <input type="search" name="q" placeholder="关键字..." value="{{ filters.q or '' }}">
+    <button type="submit">搜索</button>
+</form>
+
+<!-- 列表 -->
+{% if components %}
+<table>
+    <thead>
+        <tr>
+            <th>name</th>
+            <th>title</th>
+            <th>layer</th>
+            <th>category</th>
+            <th>资产?</th>
+            <th>形态</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for c in components %}
+        <tr>
+            <td><a href="/components/{{ c.name }}"><code>{{ c.name }}</code></a></td>
+            <td>{{ c.title }}</td>
+            <td><span class="badge {{ c.layer | layer_color }}">{{ c.layer | replace('L0_', 'L0 ') | replace('L1_', 'L1 ') | replace('L2_', 'L2 ') | replace('L3_', 'L3 ') }}</span></td>
+            <td><small>{{ c.category }}</small></td>
+            <td>
+                {% if c.is_asset %}<span class="badge badge-success">✓</span>{% else %}<span class="badge badge-secondary">✗</span>{% endif %}
+            </td>
+            <td><small>{{ c.distribution_form | form_label }}</small></td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p><em>没有匹配的组件</em></p>
+{% endif %}
+{% endblock %}

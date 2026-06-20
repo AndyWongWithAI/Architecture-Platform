@@ -3,10 +3,12 @@ import logging
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 
 from .database import init_db, SessionLocal
 from .routes import api_router
+from .ui.routes import router as ui_router
 
 logger = logging.getLogger(__name__)
 
@@ -84,14 +86,22 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
+app.include_router(ui_router)
+
+# Phase 4:挂载静态资源
+import pathlib
+_STATIC_DIR = pathlib.Path(__file__).resolve().parent / "static"
+if _STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 
 
 @app.get("/")
 def root():
-    """服务根"""
+    """服务根(UI 入口)"""
     return {
         "name": "架构平台",
         "version": app.version,
+        "ui": "/",
         "docs": "/docs",
         "openapi": "/openapi.json",
         "healthz": "/healthz",

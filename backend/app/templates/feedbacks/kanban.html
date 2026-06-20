@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}反馈看板{% endblock %}
+
+{% block content %}
+<hgroup>
+    <h1>反馈看板(Kanban)</h1>
+    <p>{{ total }} 条反馈 · 服务器代理 API Key,无需登录即可改 status/decision</p>
+</hgroup>
+
+<style>
+.kanban {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+}
+@media (max-width: 768px) {
+    .kanban { grid-template-columns: 1fr; }
+}
+.kanban-col {
+    background: var(--pico-card-background-color);
+    border-radius: 8px;
+    padding: 1rem;
+    min-height: 300px;
+}
+.kanban-col h4 {
+    margin: 0 0 0.5rem 0;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--pico-muted-border-color);
+}
+.fb-card {
+    background: var(--pico-card-sectioning-background-color);
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: 6px;
+    padding: 0.75rem;
+    margin-bottom: 0.75rem;
+    font-size: 0.9em;
+}
+.fb-card .badges { margin-bottom: 0.5rem; }
+.fb-card .summary { margin-bottom: 0.5rem; }
+.fb-card form { margin-top: 0.5rem; }
+.fb-card form .grid { gap: 0.25rem; }
+</style>
+
+<div class="kanban">
+    {% for col_key, col_title in [("open", "🔵 Open"), ("triaged", "🟡 Triaged"), ("fixing", "🟠 Fixing"), ("closed", "✅ Closed")] %}
+    <div class="kanban-col" id="kanban-col-{{ col_key }}">
+        <h4>{{ col_title }} <small>({{ columns[col_key] | length }})</small></h4>
+        {% for fb in columns[col_key] %}
+            {% include "feedbacks/_card.html" %}
+        {% endfor %}
+        {% if not columns[col_key] %}
+        <p><small><em>空</em></small></p>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+
+<hr>
+<p><small>💡 提示:每张卡片的 status / decision 改动会通过 htmx 提交,后端服务器代理 PATCH,然后返回新卡片替换。</small></p>
+{% endblock %}

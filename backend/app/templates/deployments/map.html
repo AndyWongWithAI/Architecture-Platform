@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}部署地图{% endblock %}
+
+{% block content %}
+<hgroup>
+    <h1>部署地图</h1>
+    <p>{{ total }} 条部署 · 主机 × 组件矩阵视图</p>
+</hgroup>
+
+<!-- 过滤 -->
+<form method="get" action="/deployments" class="grid">
+    <input type="text" name="host" placeholder="主机名(如 huawei-1)" value="{{ filters.host or '' }}">
+    <select name="env">
+        <option value="">所有环境</option>
+        {% for e in ["dev", "staging", "prod"] %}
+        <option value="{{ e }}" {% if filters.env == e %}selected{% endif %}>{{ e }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit">筛选</button>
+</form>
+
+<!-- 主机分组视图 -->
+<h3>按主机分组({{ by_host | length }} 个主机)</h3>
+{% if by_host %}
+{% for host, deps in by_host.items() %}
+<article>
+    <header>
+        <strong>🖥️ {{ host }}</strong>
+        <small>({{ deps | length }} 个部署)</small>
+    </header>
+    <table>
+        <thead>
+            <tr><th>环境</th><th>部署路径</th><th>部署人</th><th>时间</th><th>可重现?</th></tr>
+        </thead>
+        <tbody>
+        {% for dep in deps %}
+            <tr>
+                <td><span class="badge">{{ dep.env }}</span></td>
+                <td><code>{{ dep.deploy_path or '-' }}</code></td>
+                <td><small>{{ dep.deployed_by }}</small></td>
+                <td><small>{{ dep.deployed_at | format_dt }}</small></td>
+                <td>{% if dep.build_reproducible %}<span class="badge badge-success">✓</span>{% else %}<span class="badge badge-warning">✗</span>{% endif %}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</article>
+{% endfor %}
+{% else %}
+<p><em>暂无部署(用 <code>arch deployment create</code> 或 GitHub Action 登记)</em></p>
+{% endif %}
+
+<hr>
+<p><small>💡 部署由 GitHub Action (<code>arch-platform-register@v1</code>) 在 CI/CD pipeline 中自动登记</small></p>
+{% endblock %}

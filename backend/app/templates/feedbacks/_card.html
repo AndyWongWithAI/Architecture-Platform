@@ -1,0 +1,30 @@
+{# 反馈卡片 partial — htmx 用来替换单张卡片 #}
+<article class="fb-card" id="fb-{{ fb.id }}">
+    <div class="badges">
+        <span class="badge {{ fb.severity | severity_color }}">{{ fb.severity }}</span>
+        <span class="badge {{ fb.status | status_color }}">{{ fb.status }}</span>
+        {% if fb.decision %}<span class="badge {{ fb.decision | decision_color }}">{{ fb.decision }}</span>{% endif %}
+    </div>
+    <div class="summary">{{ fb.bug_summary | truncate(80) }}</div>
+    <small class="secondary">
+        {{ fb.reporter }} · {{ fb.created_at | format_dt }}
+        {% if fb.reused_in_projects %} · 影响 {{ fb.reused_in_projects | length }} 个项目{% endif %}
+    </small>
+
+    <form hx-post="/feedbacks/{{ fb.id }}/patch" hx-target="#fb-{{ fb.id }}" hx-swap="outerHTML">
+        <div class="grid">
+            <select name="status" aria-label="status">
+                {% for s in ["open", "triaged", "fixing", "fixed", "wontfix"] %}
+                <option value="{{ s }}" {% if fb.status == s %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+            </select>
+            <select name="decision" aria-label="decision">
+                <option value="">decision: -</option>
+                {% for d in ["optimize", "fork_new", "keep_as_is", "reassess_form"] %}
+                <option value="{{ d }}" {% if fb.decision == d %}selected{% endif %}>{{ d }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="secondary outline" style="width: 100%; margin-top: 0.25rem;">保存</button>
+    </form>
+</article>

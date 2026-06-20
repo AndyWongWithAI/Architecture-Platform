@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}总览{% endblock %}
+
+{% block content %}
+<hgroup>
+    <h1>架构平台总览</h1>
+    <p>CLAUDE.md 资产/反馈/复用原则的落点 · 9 个种子组件已登记</p>
+</hgroup>
+
+<!-- 统计卡片 -->
+<div class="grid">
+    <article>
+        <header><strong>组件总数</strong></header>
+        <h2>{{ total_components }}</h2>
+        <small>
+            <span class="badge badge-success">{{ assets_count }} 真资产</span>
+            <span class="badge badge-secondary">{{ project_count }} 项目级</span>
+        </small>
+        <footer><a href="/components" role="button" class="secondary outline">查看全部 →</a></footer>
+    </article>
+
+    <article>
+        <header><strong>反馈总数</strong></header>
+        <h2>{{ total_feedbacks }}</h2>
+        <small>Phase 8 Bug 闭环</small>
+        <footer><a href="/feedbacks" role="button" class="secondary outline">看板 →</a></footer>
+    </article>
+
+    <article>
+        <header><strong>部署总数</strong></header>
+        <h2>{{ total_deployments }}</h2>
+        <small>Phase 6 登记</small>
+        <footer><a href="/deployments" role="button" class="secondary outline">部署地图 →</a></footer>
+    </article>
+</div>
+
+<!-- 分层统计 -->
+<h3>分层统计(L0-L3)</h3>
+<div class="grid">
+    {% for layer, count in by_layer.items() %}
+    <article>
+        <header>
+            <strong class="{{ layer | layer_color }}">{{ layer }}</strong>
+        </header>
+        <h2>{{ count }}</h2>
+        <a href="/components?layer={{ layer }}" role="button" class="secondary outline">筛选 →</a>
+    </article>
+    {% endfor %}
+</div>
+
+<!-- 最近活动 -->
+<div class="grid">
+    <article>
+        <header><h4>最近反馈</h4></header>
+        {% if recent_feedbacks %}
+        <ul>
+            {% for fb in recent_feedbacks %}
+            <li>
+                <span class="badge {{ fb.severity | severity_color }}">{{ fb.severity }}</span>
+                {{ fb.bug_summary | truncate(60) }}
+                <small class="secondary">— {{ fb.reporter }}</small>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p><em>暂无反馈(用 <code>arch feedback create</code> 或 GitHub Action 登记)</em></p>
+        {% endif %}
+    </article>
+
+    <article>
+        <header><h4>最近部署</h4></header>
+        {% if recent_deployments %}
+        <table>
+            <thead><tr><th>主机</th><th>环境</th><th>时间</th></tr></thead>
+            <tbody>
+            {% for dep in recent_deployments %}
+            <tr>
+                <td><code>{{ dep.host }}</code></td>
+                <td><span class="badge">{{ dep.env }}</span></td>
+                <td><small>{{ dep.deployed_at | format_dt }}</small></td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p><em>暂无部署(用 GitHub Action 自动登记)</em></p>
+        {% endif %}
+    </article>
+</div>
+
+<hr>
+<p><small>💡 写操作请用 <a href="https://github.com/AndyWongWithAI/Architecture-Platform/tree/main/cli">arch-platform-cli</a> 或 GitHub Action。Web UI 仅支持修改反馈 status/decision。</small></p>
+{% endblock %}
