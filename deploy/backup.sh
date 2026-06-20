@@ -78,8 +78,9 @@ if [ "${REMOTE_BACKUP:-0}" = "1" ]; then
         exit 1
     fi
     # 用 ssh 指定私钥,避免密码交互
-    RSYNC_SSH="${RSYNC_SSH:-ssh -i /root/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new}"
-    rsync -avz -e "$RSYNC_SSH" "$BACKUP_FILE" "$REMOTE_USER@$REMOTE_HOST:$REMOTE_DIR/" \
+    RSYNC_SSH="${RSYNC_SSH:-ssh -i /root/.ssh/arch-platform-backup -o StrictHostKeyChecking=accept-new}"
+    # --mkpath 自动创建远程目录(rsync >= 3.2.3);Ubuntu 24.04 自带 3.2.7+
+    rsync -avz --mkpath -e "$RSYNC_SSH" "$BACKUP_FILE" "$REMOTE_USER@$REMOTE_HOST:$REMOTE_DIR/" \
         >> "$LOG_FILE" 2>&1
     log "异地备份完成"
 fi
