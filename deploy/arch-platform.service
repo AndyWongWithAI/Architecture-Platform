@@ -1,0 +1,52 @@
+[Unit]
+# arch-platform.service — 架构平台后端守护进程
+# 部署位置:/etc/systemd/system/arch-platform.service
+# 启用:systemctl daemon-reload && systemctl enable --now arch-platform
+
+Description=Architecture Platform Backend (arch-platform)
+Documentation=https://github.com/AndyWongWithAI/Architecture-Platform
+After=docker.service network-online.target
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+
+# 工作目录:#1 /opt/services/arch-platform/(含 docker-compose.yml + .env)
+WorkingDirectory=/opt/services/arch-platform
+
+# 启动:docker compose up -d(后台)
+ExecStart=/usr/bin/docker compose up -d --remove-orphans
+
+# 停止:docker compose down(优雅停)
+ExecStop=/usr/bin/docker compose down
+
+# 重启:先 down 再 up(干净)
+ExecReload=/usr/bin/docker compose restart
+
+# 超时:启动 5 分钟,停止 5 分钟
+TimeoutStartSec=300
+TimeoutStopSec=300
+
+# 资源限制(可选,services/arch-platform 是非关键业务)
+MemoryMax=768M
+CPUQuota=120%
+
+# 安全加固(最小权限原则)
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/services/arch-platform/data /opt/services/arch-platform/backups /var/log/journal
+
+# 自动重启策略(仅在异常退出时拉起)
+Restart=on-failure
+RestartSec=10s
+
+# 用户(避免 root 运行 docker compose,虽然 docker 守护需要 root,但 compose 本身可降权)
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target

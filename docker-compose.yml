@@ -1,0 +1,43 @@
+# docker-compose.yml — 架构平台生产编排
+# 部署位置:#1 华为云 /opt/services/arch-platform/
+# 启动:docker compose up -d
+# 查看日志:docker compose logs -f
+
+services:
+  arch-platform:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: arch-platform:0.1.0
+    container_name: arch-platform
+    restart: unless-stopped  # systemd 拉起 docker 后,容器异常自动重启
+
+    # 端口:只绑 127.0.0.1,走 nginx 反代对外
+    ports:
+      - "127.0.0.1:8088:8088"
+
+    # 数据 + 备份 + 种子数据持久化
+    volumes:
+      - ./data:/app/data        # SQLite 文件 + WAL
+      - ./backups:/app/backups  # 每日 SQLite .backup 输出
+
+    # 环境变量(API Key 在 #1 服务器上用 .env 文件注入,不进镜像)
+    env_file:
+      - .env
+
+    # 资源限制(MVP 阶段够用,后续按需调整)
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+
+    # 日志轮转(防 disk 撑爆)
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

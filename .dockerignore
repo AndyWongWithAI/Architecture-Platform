@@ -1,0 +1,24 @@
+# 不让 docker build context 带的文件
+.git
+.gitignore
+.venv
+venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.mypy_cache
+.ruff_cache
+node_modules
+data/*.db
+data/*.db-shm
+data/*.db-wal
+backups/*.db
+backups/*.db-shm
+backups/*.db-wal
+.env
+*.log
+.DS_Store
+backend/.pytest_cache
+backend/data
