@@ -1,0 +1,8 @@
+
+# MCP Server
+mcp_server/dist/
+mcp_server/build/
+mcp_server/*.egg-info/
+mcp_server/tests/__pycache__/
+mcp_server/arch_mcp/__pycache__/
+mcp_server/arch_mcp/tools/__pycache__/

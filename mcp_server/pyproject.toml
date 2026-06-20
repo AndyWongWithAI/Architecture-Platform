@@ -1,0 +1,29 @@
+[project]
+name = "arch-platform-mcp-server"
+version = "0.1.0"
+description = "Architecture Platform MCP Server — 让 AI 助手直接调架构平台 API"
+requires-python = ">=3.12"
+authors = [
+    { name = "andywong", email = "noreply@anthropic.com" },
+]
+license = { text = "MIT" }
+keywords = ["mcp", "architecture-platform", "ai-assistant", "claude-code"]
+dependencies = [
+    "mcp[cli]>=1.0",
+    "httpx>=0.27",
+]
+
+[project.scripts]
+arch-mcp-server = "arch_mcp.__main__:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+# 安装:pip install -e ./mcp_server
+# 启动:arch-mcp-server(从 stdin/stdout 跟 Claude Code 通信)
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

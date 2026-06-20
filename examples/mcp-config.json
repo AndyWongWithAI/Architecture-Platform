@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "arch-platform": {
+      "_comment": "Architecture Platform MCP Server — 让 Claude Code 直接调架构平台 API",
+      "_usage": "把这个文件保存为项目根目录的 .mcp.json,启动 Claude Code 时自动加载",
+      "command": "arch-mcp-server",
+      "env": {
+        "ARCH_PLATFORM_URL": "https://arch.intelab.cn",
+        "ARCH_PLATFORM_API_KEY": ""
+      },
+      "_api_key_note": "API_KEY 留空 = 开放模式(读 + 写都允许,适合个人 / 内部网络);设置 API_KEY = 鉴权模式,只有 ARCH_PLATFORM_API_KEY 知道的服务端能写"
+    }
+  }
+}
