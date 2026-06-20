@@ -527,12 +527,23 @@ components:
 
     FeedbackDecision:
       type: string
-      enum: [optimize, fork_new, keep_as_is]
+      enum: [optimize, fork_new, keep_as_is, reassess_form]
       description: |
-        反馈原则闭环决策:
+        反馈原则闭环决策(CLAUDE.md 反馈原则):
         - `optimize`: 优化原组件
         - `fork_new`: 新建组件(分叉)
         - `keep_as_is`: 保持不变(已知问题,不修)
+        - `reassess_form`: 重新审视资产形态(登记的资产形态与实际不符,需重判)
+
+    DistributionForm:
+      type: string
+      enum: [package, container, source, http_api]
+      description: |
+        资产分发形态(CLAUDE.md 资产原则):
+        - `package`: 系统包或语言包(apt / pip / npm / cargo)
+        - `container`: Docker 镜像
+        - `source`: 源码或脚本(git clone / curl)
+        - `http_api`: HTTP API 服务(必须填 interface_contract)
 
     # ---------- 子对象 ----------
     ComposedOfEntry:
@@ -572,7 +583,7 @@ components:
     # ---------- Component ----------
     ComponentCreate:
       type: object
-      required: [name, title, category, scope, layer, positioning, atomic]
+      required: [name, title, category, scope, layer, positioning, atomic, is_asset]
       properties:
         name:
           type: string
@@ -593,6 +604,20 @@ components:
           minLength: 10
           maxLength: 500
           description: 定位描述(CLAUDE.md 定位稳定性:不可变,改定位 = 新组件)
+        is_asset:
+          type: boolean
+          default: true
+          description: |
+            是否可复用资产(CLAUDE.md 资产原则):
+            - `true`: 跨项目可复用的资产(状态不敏感、可迁移、可复用)
+            - `false`: 项目级代码,登记仅为追溯,不复用(搜索默认过滤、`arch use` 警告)
+        distribution_form:
+          $ref: '#/components/schemas/DistributionForm'
+          description: 资产分发形态;`is_asset=true` 时必填
+        interface_contract:
+          type: string
+          nullable: true
+          description: 接口契约(URL 指向 OpenAPI Spec 或文本描述);`distribution_form=http_api` 时必填
         atomic:
           type: boolean
           default: true
@@ -616,6 +641,7 @@ components:
           examples: ["arch-component-user-auth-jwt"]
         install_command:
           type: string
+          description: "`is_asset=true` 时必填"
           examples: ["pip install arch-component-user-auth-jwt"]
         usage_example:
           type: string
@@ -636,6 +662,9 @@ components:
         package_name: { type: string }
         install_command: { type: string }
         usage_example: { type: string }
+        is_asset: { type: boolean, description: 修改资产判定(从 false 改 true 时必须同步填 distribution_form) }
+        distribution_form: { $ref: '#/components/schemas/DistributionForm' }
+        interface_contract: { type: string, nullable: true }
 
     Component:
       allOf:

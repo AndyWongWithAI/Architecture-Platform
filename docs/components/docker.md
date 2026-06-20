@@ -17,6 +17,9 @@ install_command: "apt install docker.io"
 usage_example: "docker run hello-world"
 status: stable
 repo_url: ""
+is_asset: true
+distribution_form: package
+interface_contract: ""
 ---
 
 # Docker 容器引擎

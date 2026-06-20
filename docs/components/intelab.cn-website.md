@@ -20,6 +20,9 @@ install_command: ""
 usage_example: "https://intelab.cn"
 status: stable
 repo_url: ""
+is_asset: false
+distribution_form: ""
+interface_contract: ""
 ---
 
 # intelab.cn 占位网站

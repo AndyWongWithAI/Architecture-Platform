@@ -18,6 +18,9 @@ install_command: ""
 usage_example: ""
 status: stable
 repo_url: ""
+is_asset: true
+distribution_form: source
+interface_contract: ""
 ---
 
 # Ubuntu 24.04 LTS(Noble Numbat)

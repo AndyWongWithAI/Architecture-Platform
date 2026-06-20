@@ -17,6 +17,9 @@ install_command: ""
 usage_example: "ssh -i ~/.ssh/id_ed25519 ubuntu@server"
 status: stable
 repo_url: ""
+is_asset: true
+distribution_form: source
+interface_contract: ""
 ---
 
 # SSH 公私钥认证

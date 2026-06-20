@@ -49,13 +49,21 @@
 | `atomic` | boolean | ✅ | `true` | 是否原子组件 | `atomic=true` ⇒ `composed_of` 必空;反之必非空 |
 | `composed_of` | list\<ComposedOfEntry\> | 条件 | — | 复合组件的子组件清单 | 每项 = `{component_id, version_constraint}`;version_constraint 是 SemVer 约束(`^1.2.0` / `~0.8.0` / `>=2.0.0 <3.0.0` / `1.2.0`) |
 
+### 资产判定(CLAUDE.md 资产原则)
+
+| 字段 | 类型 | 必填 | 默认 | 含义 | 约束 | 例子 |
+|------|------|------|------|------|------|------|
+| `is_asset` | boolean | ✅ | `true` | 是否可复用资产 | `false` = 项目级代码,登记仅为追溯,不复用;搜索默认过滤、`arch use` 警告 | `true` |
+| `distribution_form` | enum | 条件 | — | 资产分发形态 | `is_asset=true` 时必填;`package` / `container` / `source` / `http_api` | `package` |
+| `interface_contract` | string | 条件 | null | 接口契约 | `distribution_form=http_api` 时必填(URL 指向 OpenAPI Spec);其他可填文本 | `https://.../openapi.yaml` |
+
 ### 复用元数据(§12)
 
 | 字段 | 类型 | 必填 | 默认 | 含义 | 约束 |
 |------|------|------|------|------|------|
 | `language` | enum | ❌ | — | 主要语言 | `python` / `typescript` / `javascript` / `go` / `rust` / `shell` / `sql` / `other` |
-| `package_name` | string | ❌ | — | 包名(发包用) | — | `arch-component-user-auth-jwt` |
-| `install_command` | text | 条件 | — | 一行安装命令 | `infra` / `lib+atomic=true` / `app+atomic=false` 必填 |
+| `package_name` | string | 条件 | — | 包名(发包用) | `distribution_form=package` 时必填 | `arch-component-user-auth-jwt` |
+| `install_command` | text | 条件 | — | 一行安装命令 | `is_asset=true` 时必填 | `pip install arch-component-user-auth-jwt` |
 | `usage_example` | text | ❌ | — | 一行代码示例 | — | `from arch_component_user_auth_jwt import AuthService` |
 | `repo_url` | string | ❌ | — | GitHub repo URL | URL 格式 | `https://github.com/AndyWongWithAI/user-auth-jwt` |
 | `tags` | list\<string\> | ❌ | `[]` | 标签 | ≤ 20 项 | `["jwt", "refresh-token"]` |
@@ -126,7 +134,7 @@
 | `fix_plan` | text | ❌ | — | 修复方案 | 长文本 | `改为 Redis 分布式锁` |
 | `severity` | enum | ✅ | — | 严重度 | `low` / `medium` / `high` / `critical` | `high` |
 | `status` | enum | ✅ | `open` | 处理状态 | `open` / `triaged` / `fixing` / `fixed` / `wontfix` | `open` |
-| `decision` | enum | 条件 | null | 决策闭环 | 转 `fixed`/`wontfix` 前必填(否则 422) | `optimize` |
+| `decision` | enum | 条件 | null | 决策闭环 | 转 `fixed`/`wontfix` 前必填(否则 422);`optimize` / `fork_new` / `keep_as_is` / `reassess_form`(重新审视资产形态) | `optimize` |
 | `reused_in_projects` | list\<string\> | ❌ | `[]` | 影响面(在哪些项目里被使用) | — | `["user-mgmt", "internal-admin"]` |
 | `decided_at` | timestamp | 条件 | null | 决策时间 | 填 `decision` 时自动写入 | — |
 | `created_at` | timestamp | ✅(自动) | now | 报告时间 | — | — |
@@ -147,6 +155,7 @@
 | `idx_component_layer_category` | 复合 | `(layer, category)` | 联合筛选(L2 + auth) |
 | `idx_component_tags` | GIN / JSON 函数 | `tags` | 标签搜索(待 SQLite FTS5 或迁移 PG 后启用) |
 | `idx_component_status` | 普通 | `status` | 排除 deprecated/archived |
+| `idx_component_is_asset` | 部分 | `is_asset` WHERE `is_asset = true` | 资产清单(默认查询路径) |
 
 ### Version
 

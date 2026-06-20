@@ -17,6 +17,9 @@ install_command: "apt install fail2ban && systemctl enable fail2ban"
 usage_example: "fail2ban-client status sshd"
 status: stable
 repo_url: ""
+is_asset: true
+distribution_form: package
+interface_contract: ""
 ---
 
 # fail2ban SSH 防爆破

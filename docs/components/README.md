@@ -30,10 +30,16 @@
 | 弃用 (`status=deprecated`) | 1 |
 | 原子 (`atomic=true`) | 8 |
 | 复合 (`atomic=false`) | 1 |
+| **真资产 (`is_asset=true`)** | **7** |
+| **项目级 (`is_asset=false`)** | **2**(minimax-proxy / intelab.cn-website) |
+| `distribution_form=package` | 5 |
+| `distribution_form=source` | 2 |
 | L0 | 2 |
 | L1 | 5 |
 | L2 | 1 |
 | L3 | 1 |
+
+> 判定依据见 [`../asset-criteria.md`](../asset-criteria.md)。
 
 ## 文件结构
 
@@ -50,11 +56,14 @@ atomic: true         # true=原子/false=复合
 composed_of: []      # 仅 atomic=false 时填
 tags: [docker, ...]  # 标签
 language: go         # 主要语言
-package_name: ""     # pypi/npm 名(L2 atomic 才有)
-install_command: ""  # 一行安装命令
+package_name: ""     # pypi/npm 名(distribution_form=package 时填)
+install_command: ""  # 一行安装命令(is_asset=true 时必填)
 usage_example: ""    # 一行使用示例
 status: stable       # draft/stable/deprecated/archived
 repo_url: ""         # GitHub repo
+is_asset: true       # 是否可复用资产(CLAUDE.md 资产原则);false=项目级代码,登记仅为追溯
+distribution_form: package  # package/container/source/http_api;is_asset=true 时必填
+interface_contract: ""      # OpenAPI Spec URL 或接口契约文本;http_api 时必填
 ---
 ```
 

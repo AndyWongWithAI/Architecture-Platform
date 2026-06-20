@@ -17,6 +17,9 @@ install_command: "apt install ufw && ufw enable"
 usage_example: "ufw allow 22/tcp && ufw status"
 status: stable
 repo_url: ""
+is_asset: true
+distribution_form: package
+interface_contract: ""
 ---
 
 # UFW 防火墙

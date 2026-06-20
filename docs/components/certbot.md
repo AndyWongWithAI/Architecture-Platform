@@ -18,6 +18,9 @@ install_command: "apt install certbot"
 usage_example: "certbot certonly --nginx -d intelab.cn -d www.intelab.cn"
 status: stable
 repo_url: https://github.com/certbot/certbot
+is_asset: true
+distribution_form: package
+interface_contract: ""
 ---
 
 # Certbot / Let's Encrypt SSL 证书自动化

@@ -18,6 +18,9 @@ install_command: "apt install nginx"
 usage_example: "nginx -t && systemctl reload nginx"
 status: stable
 repo_url: ""
+is_asset: true
+distribution_form: package
+interface_contract: ""
 ---
 
 # Nginx Web 服务器 / 反向代理

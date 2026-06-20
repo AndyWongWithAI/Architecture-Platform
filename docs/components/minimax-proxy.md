@@ -17,6 +17,9 @@ install_command: ""
 usage_example: ""
 status: deprecated
 repo_url: ""
+is_asset: false
+distribution_form: ""
+interface_contract: ""
 ---
 
 # MiniMax API 代理服务
