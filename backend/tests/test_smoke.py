@@ -127,6 +127,107 @@ def test_search_keyword():
     assert "certbot" in names
 
 
+# ===== Phase 1.1 写操作测试 =====
+# 注意:开发模式(ARCH_PLATFORM_API_KEY 未设置)= 开放模式,POST/PATCH 不需要 Key
+# 生产模式(Key 已设置)= 强制鉴权,无 Key 返回 401
+
+
+def test_post_component_success():
+    """POST 创建新组件(开放模式不需要 Key)"""
+    client = TestClient(app)
+    payload = {
+        "name": "redis",
+        "title": "Redis 内存数据库",
+        "positioning": "L1 平台层的高性能 KV 缓存,支持多种数据结构,常用于 session/计数器/排行榜",
+        "category": "cache",
+        "scope": "infra",
+        "layer": "L1_platform",
+        "atomic": True,
+        "composed_of": [],
+        "tags": ["cache", "kv", "memory"],
+        "is_asset": True,
+        "distribution_form": "package",
+        "knowledge_artifact": False,
+    }
+    r = client.post("/api/v1/components", json=payload)
+    assert r.status_code == 201, f"got {r.status_code}: {r.text}"
+    data = r.json()
+    assert data["name"] == "redis"
+    assert data["is_asset"] is True
+    assert data["distribution_form"] == "package"
+    print(f"  → POST created: {data['name']} (id={data['id'][:8]}...)")
+
+
+def test_post_duplicate_409():
+    """重名组件 → 409 Conflict"""
+    client = TestClient(app)
+    payload = {
+        "name": "docker",  # 跟现有 docker 重名
+        "title": "Docker 重复",
+        "positioning": "尝试创建重名组件,应该返回 409",
+        "category": "deploy",
+        "scope": "infra",
+        "layer": "L0_infrastructure",
+        "is_asset": True,
+        "distribution_form": "package",
+    }
+    r = client.post("/api/v1/components", json=payload)
+    assert r.status_code == 409, f"expected 409, got {r.status_code}"
+    print(f"  → POST duplicate: 409 ✓")
+
+
+def test_post_asset_missing_form_422():
+    """is_asset=true 但没填 distribution_form → 422"""
+    client = TestClient(app)
+    payload = {
+        "name": "broken-asset",
+        "title": "broken asset",
+        "positioning": "is_asset=true 但不填 distribution_form,应该 422",
+        "category": "util",
+        "scope": "lib",
+        "layer": "L2_capability",
+        "is_asset": True,
+        # distribution_form 缺失!
+    }
+    r = client.post("/api/v1/components", json=payload)
+    assert r.status_code == 422, f"expected 422, got {r.status_code}: {r.text}"
+    print(f"  → POST missing distribution_form: 422 ✓")
+
+
+def test_post_atomic_conflict_422():
+    """atomic=true 但有 composed_of → 422"""
+    client = TestClient(app)
+    payload = {
+        "name": "broken-atomic",
+        "title": "broken atomic",
+        "positioning": "atomic=true 但又有 composed_of,自相矛盾,应该 422",
+        "category": "util",
+        "scope": "lib",
+        "layer": "L2_capability",
+        "atomic": True,
+        "composed_of": [{"component_id": "docker", "version_constraint": "^1.0"}],  # 矛盾!
+        "is_asset": True,
+        "distribution_form": "package",
+    }
+    r = client.post("/api/v1/components", json=payload)
+    assert r.status_code == 422, f"expected 422, got {r.status_code}: {r.text}"
+    print(f"  → POST atomic conflict: 422 ✓")
+
+
+def test_patch_component():
+    """PATCH 部分字段更新(把刚才创建的 redis 的 category 改一下)"""
+    client = TestClient(app)
+    r = client.patch(
+        "/api/v1/components/redis",
+        json={"title": "Redis 7.x 内存数据库", "tags": ["cache", "kv", "memory", "redis-7"]},
+    )
+    assert r.status_code == 200, f"got {r.status_code}: {r.text}"
+    data = r.json()
+    assert data["title"] == "Redis 7.x 内存数据库"
+    assert "redis-7" in data["tags"]
+    print(f"  → PATCH redis: title updated, tags updated")
+
+
 if __name__ == "__main__":
     test_health()
     test_list_all()
@@ -136,4 +237,10 @@ if __name__ == "__main__":
     test_composite_tree()
     test_usage()
     test_search_keyword()
+    # Phase 1.1 写操作
+    test_post_component_success()
+    test_post_duplicate_409()
+    test_post_asset_missing_form_422()
+    test_post_atomic_conflict_422()
+    test_patch_component()
     print("\n✅ All tests passed!")

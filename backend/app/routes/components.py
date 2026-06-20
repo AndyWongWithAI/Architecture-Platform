@@ -1,13 +1,19 @@
-"""Component routes — GET endpoints (Phase 1.0 MVP)
-POST/PATCH 留到 Phase 1.1(本会话不实现)
+"""Component routes — GET + POST + PATCH (Phase 1.1)
+- GET: 公开,无需鉴权
+- POST / PATCH: 必须 X-API-Key(由 require_api_key 中间件强制)
 """
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import Component, Version, Layer, ComponentStatus
-from ..schemas import ComponentOut, ComponentDetail, ComponentList, ComponentTreeNode, ComponentUsage
+from ..schemas import (
+    ComponentOut, ComponentDetail, ComponentList,
+    ComponentTreeNode, ComponentUsage,
+    ComponentCreate, ComponentUpdate,
+)
+from ..auth import require_api_key
 
 router = APIRouter()
 
@@ -105,3 +111,126 @@ def get_component_usage(component_id: str, db: Session = Depends(get_db)):
         usage_example=comp.usage_example,
         current_version=current_ver,
     )
+
+
+# ===== 写操作(POST / PATCH)— Phase 1.1 =====
+# 必须带 X-API-Key(由 require_api_key 强制)
+
+
+def _validate_component_business_rules(payload, db: Session, exclude_id: Optional[str] = None):
+    """业务规则校验(超出 Pydantic schema 的语义检查)
+    抛 HTTPException 表示校验失败
+    """
+    # 1. 资产判定一致性
+    if payload.is_asset:
+        # 真资产必须填 distribution_form
+        if not payload.distribution_form:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "is_asset=true requires distribution_form to be set",
+            )
+        # http_api 必须填 interface_contract
+        if payload.distribution_form.value == "http_api" and not payload.interface_contract:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "distribution_form=http_api requires interface_contract to be set",
+            )
+
+    # 2. 原子性自洽
+    if payload.atomic and payload.composed_of:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "atomic=true requires composed_of to be empty",
+        )
+    if not payload.atomic:
+        if not payload.composed_of:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "atomic=false requires composed_of to be non-empty",
+            )
+        # 复合组件:每个子组件必须存在
+        for entry in payload.composed_of:
+            child = db.query(Component).filter(
+                (Component.id == entry.component_id)
+                | (Component.name == entry.component_id)
+            ).first()
+            if not child:
+                raise HTTPException(
+                    status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    f"composed_of references non-existent component: {entry.component_id}",
+                )
+
+
+@router.post(
+    "",
+    response_model=ComponentOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_api_key)],
+)
+def create_component(payload: ComponentCreate, db: Session = Depends(get_db)):
+    """创建组件(需要 API Key)"""
+    # name 唯一性
+    existing = db.query(Component).filter(Component.name == payload.name).first()
+    if existing:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"component with name '{payload.name}' already exists",
+        )
+
+    # 业务规则校验
+    _validate_component_business_rules(payload, db)
+
+    comp = Component(
+        id=_gen_uuid(),
+        **payload.model_dump(),
+    )
+    db.add(comp)
+    db.commit()
+    db.refresh(comp)
+    return comp
+
+
+@router.patch(
+    "/{component_id}",
+    response_model=ComponentOut,
+    dependencies=[Depends(require_api_key)],
+)
+def update_component(
+    component_id: str,
+    payload: ComponentUpdate,
+    db: Session = Depends(get_db),
+):
+    """更新组件(部分字段,需要 API Key)"""
+    comp = db.query(Component).filter(
+        (Component.id == component_id) | (Component.name == component_id)
+    ).first()
+    if not comp:
+        raise HTTPException(404, "component not found")
+
+    # 应用 patch(只更新显式提供的字段)
+    update_data = payload.model_dump(exclude_unset=True)
+    for key, val in update_data.items():
+        setattr(comp, key, val)
+
+    # 重新做完整业务规则校验(基于 patch 后的最终状态)
+    _validate_component_business_rules(
+        ComponentCreate(
+            name=comp.name, title=comp.title, positioning=comp.positioning,
+            category=comp.category, scope=comp.scope, layer=comp.layer,
+            atomic=comp.atomic, composed_of=comp.composed_of or [],
+            is_asset=comp.is_asset, distribution_form=comp.distribution_form,
+            interface_contract=comp.interface_contract,
+            knowledge_artifact=comp.knowledge_artifact,
+        ),
+        db,
+        exclude_id=comp.id,
+    )
+
+    db.commit()
+    db.refresh(comp)
+    return comp
+
+
+def _gen_uuid() -> str:
+    import uuid
+    return str(uuid.uuid4())

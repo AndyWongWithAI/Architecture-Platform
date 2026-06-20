@@ -21,27 +21,23 @@ pip3 install --break-system-packages fastapi uvicorn[standard] sqlalchemy pydant
 ./run.sh test
 ```
 
-## 当前实现范围(Phase 1.0 MVP)
+## 当前实现范围(Phase 1.0 MVP + Phase 1.1 写操作)
 
 | 功能 | 状态 | 备注 |
 |------|------|------|
-| 4 实体 ORM models(Component / Version / Deployment / Feedback) | ✅ 完成 | 对应 OpenAPI spec |
-| Markdown importer | ✅ 完成 | 读 `docs/components/*.md` → SQLite |
-| GET `/api/v1/components` | ✅ 完成 | 支持 `q` / `layer` / `category` / `is_asset` 过滤 |
-| GET `/api/v1/components/{id}` | ✅ 完成 | 支持 id 或 name 查询 |
-| GET `/api/v1/components/{id}/tree` | ✅ 完成 | 展开 composed_of(最大深度 5,防环) |
-| GET `/api/v1/components/{id}/usage` | ✅ 完成 | `arch use` 的输出 |
-| GET `/api/v1/versions/{id}` | ✅ 完成 | 版本详情 |
-| GET `/api/v1/deployments` | ✅ 完成 | 按 version_id / host / env 过滤 |
-| GET `/api/v1/feedbacks` | ✅ 完成 | 按 status / version_id 过滤 |
-| GET `/healthz` | ✅ 完成 | 健康检查 |
-| **POST / PATCH endpoints** | ⏳ Phase 1.1 | 需要 API Key 鉴权,本会话不实现 |
-| **GET `/search`** | ⏳ Phase 1.1 | 全文搜索,FTS5 或 PG 迁移后启用 |
-| **API Key 鉴权** | ⏳ Phase 1.1 | 写操作必须有 Key |
-| **Web UI(HTMX)** | ⏳ Phase 4 | 只读 + 反馈看板 |
-| **CLI(`arch`)** | ⏳ Phase 2 | 写操作入口 |
-| **GitHub Action** | ⏳ Phase 3 | 自动登记 deployment |
-| **部署到 #1** | ⏳ Phase 1.2 | systemd + nginx 反代 |
+| 4 实体 ORM models | ✅ | 对应 OpenAPI spec |
+| Markdown importer | ✅ | 读 `docs/components/*.md` → SQLite |
+| **GET endpoints(8 个)** | ✅ | 列表/详情/tree/usage/versions/deployments/feedbacks/healthz |
+| **POST /components** | ✅ Phase 1.1 | API Key 鉴权 + 业务规则校验 |
+| **PATCH /components/{id}** | ✅ Phase 1.1 | 部分字段更新 + 完整重新校验 |
+| **API Key 鉴权中间件** | ✅ Phase 1.1 | `X-API-Key` 头;`ARCH_PLATFORM_API_KEY` 环境变量;未设置 = 开放模式(开发用) |
+| **业务规则校验** | ✅ | is_asset 一致性、atomic/composed_of 自洽、子组件存在性 |
+| GET `/search` | ⏳ Phase 1.1 后续 | FTS5 或 PG 迁移后启用 |
+| POST `/versions` / `/deployments` / `/feedbacks` | ⏳ Phase 1.1 后续 | API 框架就位,业务逻辑待补 |
+| Web UI(HTMX) | ⏳ Phase 4 | 只读 + 反馈看板 |
+| CLI(`arch`) | ⏳ Phase 2 | 写操作入口 |
+| GitHub Action | ⏳ Phase 3 | 自动登记 deployment |
+| **部署到 #1** | ⏳ Phase 1.2 | **Dockerfile + compose + systemd + nginx** |
 
 ## 数据模型(2026-06-20 修订版)
 

@@ -9,8 +9,10 @@ from .routes import api_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """启动时建表"""
+    """启动时建表 + 鉴权检查"""
     init_db()
+    from .auth import warn_if_open_mode
+    warn_if_open_mode()
     yield
 
 
