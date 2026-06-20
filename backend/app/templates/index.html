@@ -41,7 +41,7 @@
     {% for layer, count in by_layer.items() %}
     <article>
         <header>
-            <strong class="{{ layer | layer_color }}">{{ layer }}</strong>
+            <strong class="{{ layer | layer_color }}">{{ layer | layer_zh }}</strong>
         </header>
         <h2>{{ count }}</h2>
         <a href="/components?layer={{ layer }}" role="button" class="secondary outline">筛选 →</a>
@@ -57,8 +57,8 @@
         <ul>
             {% for fb in recent_feedbacks %}
             <li>
-                <span class="badge {{ fb.severity | severity_color }}">{{ fb.severity }}</span>
-                {{ fb.bug_summary | truncate(60) }}
+                <span class="badge {{ fb.severity | severity_color }}">{{ fb.severity | severity_zh }}</span>
+                <a href="/feedbacks/{{ fb.id }}">{{ fb.bug_summary | truncate(60) }}</a>
                 <small class="secondary">— {{ fb.reporter }}</small>
             </li>
             {% endfor %}
@@ -90,5 +90,5 @@
 </div>
 
 <hr>
-<p><small>💡 写操作请用 <a href="https://github.com/AndyWongWithAI/Architecture-Platform/tree/main/cli">arch-platform-cli</a> 或 GitHub Action。Web UI 仅支持修改反馈 status/decision。</small></p>
+<p><small>💡 写操作请用 <a href="https://github.com/AndyWongWithAI/Architecture-Platform/tree/main/cli">arch-platform-cli</a>、<a href="/healthz">MCP Server</a> 或 GitHub Action。Web UI 只读。</small></p>
 {% endblock %}

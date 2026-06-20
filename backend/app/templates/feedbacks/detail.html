@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}反馈 {{ fb.id[:8] }}{% endblock %}
+
+{% block content %}
+<hgroup>
+    <h1>反馈明细</h1>
+    <p>
+        <code>{{ fb.id }}</code>
+        <a href="/feedbacks" role="button" class="secondary outline">← 看板</a>
+    </p>
+</hgroup>
+
+<div class="badges" style="margin-bottom: 1rem;">
+    <span class="badge {{ fb.severity | severity_color }}">严重度: {{ fb.severity | severity_zh }}</span>
+    <span class="badge {{ fb.status | status_color }}">状态: {{ fb.status | status_zh }}</span>
+    {% if fb.decision %}
+    <span class="badge {{ fb.decision | decision_color }}">决策: {{ fb.decision | decision_zh }}</span>
+    {% else %}
+    <span class="badge badge-secondary">决策: -</span>
+    {% endif %}
+</div>
+
+<article>
+    <h4>🐛 Bug 摘要</h4>
+    <p>{{ fb.bug_summary }}</p>
+</article>
+
+<div class="grid">
+    <article>
+        <h4>🔍 根因分析</h4>
+        {% if fb.root_cause %}
+        <p>{{ fb.root_cause }}</p>
+        {% else %}
+        <p><em>未填写(分诊时由架构师填)</em></p>
+        {% endif %}
+    </article>
+
+    <article>
+        <h4>🔧 修复方案</h4>
+        {% if fb.fix_plan %}
+        <p>{{ fb.fix_plan }}</p>
+        {% else %}
+        <p><em>未填写(分诊时由架构师填)</em></p>
+        {% endif %}
+    </article>
+</div>
+
+<article>
+    <h4>📋 元数据</h4>
+    <ul>
+        <li><strong>报告人:</strong> {{ fb.reporter }}</li>
+        <li><strong>创建时间:</strong> {{ fb.created_at | format_dt }}</li>
+        {% if fb.decided_at %}
+        <li><strong>决策时间:</strong> {{ fb.decided_at | format_dt }}</li>
+        {% endif %}
+        <li><strong>关联版本:</strong> <code>{{ fb.version_id }}</code></li>
+        {% if fb.reused_in_projects %}
+        <li><strong>影响项目:</strong> {{ fb.reused_in_projects | join(', ') }} ({{ fb.reused_in_projects | length }} 个)</li>
+        {% endif %}
+    </ul>
+</article>
+
+{# FB-G 修复:Web UI 不允许编辑反馈,只读视图;状态推进走 CLI/MCP/Action #}
+<article>
+    <h4>📝 推进反馈状态</h4>
+    <p><em>状态推进请用:</em></p>
+    <pre><code>arch feedback update {{ fb.id }} --status fixing  # 开始修
+arch feedback update {{ fb.id }} --status fixed   # 已修
+arch feedback update {{ fb.id }} --status wontfix --decision keep_as_is  # 不修</code></pre>
+</article>
+
+<hr>
+<p>
+    <a href="/feedbacks" role="button" class="secondary outline">← 看板</a>
+    <a href="/api/v1/feedbacks/{{ fb.id }}" role="button" class="secondary outline">JSON API</a>
+</p>
+{% endblock %}

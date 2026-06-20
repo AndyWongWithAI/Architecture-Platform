@@ -122,14 +122,13 @@ async def component_detail(request: Request, name: str):
     if not component:
         raise HTTPException(status_code=404, detail=f"组件 {name} 不存在")
 
-    # 取该组件的反馈(如果有 current_version_id)
-    feedbacks = {"items": []}
-    if component.get("current_version_id"):
-        feedbacks = await _safe_get(
-            "/api/v1/feedbacks",
-            {"version_id": component["current_version_id"], "limit": 50},
-            default={"items": []},
-        )
+    # FB-H 修复(2026-06-21):用新端点 GET /components/{id}/feedbacks
+    # 之前用 ?version_id=current_version_id 只能查到当前版本的反馈
+    # 现在查组件所有版本关联的反馈
+    feedbacks = await _safe_get(
+        f"/api/v1/components/{name}/feedbacks",
+        default={"items": []},
+    )
 
     return templates.TemplateResponse(
         request,
@@ -224,6 +223,21 @@ async def feedback_patch_from_ui(
         request,
         "feedbacks/_card.html",
         {"fb": updated},
+    )
+
+
+# ——— 6.5. 反馈明细(FB-I 修复:2026-06-21)———
+
+@router.get("/feedbacks/{feedback_id}", response_class=HTMLResponse)
+async def feedback_detail(request: Request, feedback_id: str):
+    """反馈明细页:展示 bug_summary / root_cause / fix_plan / 元数据"""
+    fb = await _safe_get(f"/api/v1/feedbacks/{feedback_id}")
+    if not fb:
+        raise HTTPException(status_code=404, detail=f"反馈 {feedback_id} 不存在")
+    return templates.TemplateResponse(
+        request,
+        "feedbacks/detail.html",
+        {"fb": fb},
     )
 
 

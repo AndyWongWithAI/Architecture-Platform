@@ -118,6 +118,28 @@ def get_component_usage(component_id: str, db: Session = Depends(get_db)):
     )
 
 
+# FB-H 修复(2026-06-21):组件关联反馈端点
+@router.get("/{component_id}/feedbacks")
+def get_component_feedbacks(component_id: str, db: Session = Depends(get_db)):
+    """列出该组件所有版本关联的反馈(用于组件详情页)
+
+    实现:通过 Component 找所有 Version,再查 Version 关联的 Feedback
+    """
+    from ..models import Feedback  # 避免循环 import
+    comp = db.query(Component).filter(
+        (Component.id == component_id) | (Component.name == component_id)
+    ).first()
+    if not comp:
+        raise HTTPException(404, "component not found")
+    version_ids = [v.id for v in comp.versions] if comp.versions else []
+    if version_ids:
+        items = db.query(Feedback).filter(Feedback.version_id.in_(version_ids)).order_by(Feedback.created_at.desc()).all()
+    else:
+        # 没 version 时直接查 component_id(向后兼容老数据)
+        items = db.query(Feedback).filter(Feedback.version_id == comp.id).order_by(Feedback.created_at.desc()).all()
+    return {"items": items, "total": len(items)}
+
+
 # ===== 写操作(POST / PATCH)— Phase 1.1 =====
 # 必须带 X-API-Key(由 require_api_key 强制)
 

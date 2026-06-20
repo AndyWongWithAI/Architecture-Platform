@@ -1,30 +1,18 @@
-{# 反馈卡片 partial — htmx 用来替换单张卡片 #}
+{# 反馈卡片 partial — FB-G 修复(2026-06-21):Web UI 改只读 #}
 <article class="fb-card" id="fb-{{ fb.id }}">
     <div class="badges">
         <span class="badge {{ fb.severity | severity_color }}">{{ fb.severity | severity_zh }}</span>
         <span class="badge {{ fb.status | status_color }}">{{ fb.status | status_zh }}</span>
         {% if fb.decision %}<span class="badge {{ fb.decision | decision_color }}">{{ fb.decision | decision_zh }}</span>{% endif %}
     </div>
-    <div class="summary">{{ fb.bug_summary | truncate(80) }}</div>
+    <div class="summary">
+        <a href="/feedbacks/{{ fb.id }}">{{ fb.bug_summary | truncate(80) }}</a>
+    </div>
     <small class="secondary">
         {{ fb.reporter }} · {{ fb.created_at | format_dt }}
         {% if fb.reused_in_projects %} · 影响 {{ fb.reused_in_projects | length }} 个项目{% endif %}
     </small>
-
-    <form hx-post="/feedbacks/{{ fb.id }}/patch" hx-target="#fb-{{ fb.id }}" hx-swap="outerHTML">
-        <div class="grid">
-            <select name="status" aria-label="status">
-                {% for s in ["open", "triaged", "fixing", "fixed", "wontfix"] %}
-                <option value="{{ s }}" {% if fb.status == s %}selected{% endif %}>{{ s | status_zh }}</option>
-                {% endfor %}
-            </select>
-            <select name="decision" aria-label="decision">
-                <option value="">决策: -</option>
-                {% for d in ["optimize", "fork_new", "keep_as_is", "reassess_form"] %}
-                <option value="{{ d }}" {% if fb.decision == d %}selected{% endif %}>{{ d | decision_zh }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <button type="submit" class="secondary outline" style="width: 100%; margin-top: 0.25rem;">保存</button>
-    </form>
+    {# FB-G 修复(2026-06-21):删 hx-post /patch 表单,Web UI 只读 #}
+    {# 状态推进请用 arch CLI / MCP / GitHub Action #}
+    {# <form>...</form> 已移除 #}
 </article>

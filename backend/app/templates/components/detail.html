@@ -84,20 +84,22 @@
 <h3>关联反馈({{ feedbacks | length }})</h3>
 {% if feedbacks %}
 <table>
-    <thead><tr><th>severity</th><th>summary</th><th>status</th><th>reporter</th></tr></thead>
+    <thead><tr><th>严重度</th><th>摘要</th><th>状态</th><th>决策</th><th>报告人</th><th>时间</th></tr></thead>
     <tbody>
     {% for fb in feedbacks %}
         <tr>
-            <td><span class="badge {{ fb.severity | severity_color }}">{{ fb.severity }}</span></td>
-            <td>{{ fb.bug_summary | truncate(60) }}</td>
-            <td><span class="badge {{ fb.status | status_color }}">{{ fb.status }}</span></td>
+            <td><span class="badge {{ fb.severity | severity_color }}">{{ fb.severity | severity_zh }}</span></td>
+            <td><a href="/feedbacks/{{ fb.id }}">{{ fb.bug_summary | truncate(60) }}</a></td>
+            <td><span class="badge {{ fb.status | status_color }}">{{ fb.status | status_zh }}</span></td>
+            <td>{% if fb.decision %}<span class="badge {{ fb.decision | decision_color }}">{{ fb.decision | decision_zh }}</span>{% else %}-{% endif %}</td>
             <td><small>{{ fb.reporter }}</small></td>
+            <td><small>{{ fb.created_at | format_dt }}</small></td>
         </tr>
     {% endfor %}
     </tbody>
 </table>
 {% else %}
-<p><em>无关联反馈</em></p>
+<p><em>暂无反馈(用 <code>arch feedback create</code> 或 GitHub Action 登记)</em></p>
 {% endif %}
 
 <hr>

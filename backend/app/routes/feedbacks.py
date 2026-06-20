@@ -34,6 +34,15 @@ def list_feedbacks(
     return {"items": items, "total": total}
 
 
+@router.get("/{feedback_id}", response_model=FeedbackOut)
+def get_feedback(feedback_id: str, db: Session = Depends(get_db)):
+    """反馈明细(FB-I 修复:2026-06-21 加,让 /feedbacks/{id} 能访问详情)"""
+    fb = db.query(Feedback).filter(Feedback.id == feedback_id).first()
+    if not fb:
+        raise HTTPException(404, "feedback not found")
+    return fb
+
+
 # ===== 写操作(PATCH)— Phase 1.1 =====
 
 
