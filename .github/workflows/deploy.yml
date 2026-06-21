@@ -76,21 +76,31 @@ jobs:
           script: |
             set -e
             REPO_URL="https://github.com/${{ github.repository }}.git"
-            cd "${{ inputs.deploy_path }}"
+            DEPLOY_PATH="${{ inputs.deploy_path }}"
+            PARENT_DIR="$(dirname "$DEPLOY_PATH")"
+            BASE_NAME="$(basename "$DEPLOY_PATH")"
 
             # 首次部署:clone;后续:pull
-            if [ ! -d .git ]; then
+            if [ ! -d "$DEPLOY_PATH/.git" ]; then
               echo "[deploy] 首次部署,git clone..."
-              cd "$(dirname "${{ inputs.deploy_path }}")"
-              rm -rf "$(basename "${{ inputs.deploy_path }}")"
-              git clone "$REPO_URL" "$(basename "${{ inputs.deploy_path }}")"
-              cd "${{ inputs.deploy_path }}"
+              # 备份 .env(不提交到 git,clone 后恢复)
+              [ -f "$DEPLOY_PATH/.env" ] && cp "$DEPLOY_PATH/.env" "/tmp/${BASE_NAME}.env.bak" || true
+              cd "$PARENT_DIR"
+              rm -rf "$BASE_NAME"
+              git clone "$REPO_URL" "$BASE_NAME"
+              cd "$BASE_NAME"
+              [ -f "/tmp/${BASE_NAME}.env.bak" ] && mv "/tmp/${BASE_NAME}.env.bak" .env || true
+              [ ! -f .env ] && cp .env.example .env || true
             else
               echo "[deploy] git pull..."
+              cd "$DEPLOY_PATH"
               git pull origin main
+              # 兜底:确保 .env 存在
+              [ ! -f .env ] && cp .env.example .env || true
             fi
 
             echo "[deploy] docker compose up --build -d..."
+            cd "$DEPLOY_PATH"
             docker compose -f ${{ inputs.compose_file }} up --build -d
 
             echo "[deploy] 等待容器健康..."
