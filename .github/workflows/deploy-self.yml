@@ -1,6 +1,22 @@
+name: Deploy Self
+
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+
 jobs:
-  test:
+  deploy:
     uses: ./.github/workflows/deploy.yml
+    with:
+      host: "124.71.219.208"
+      service_name: "arch-platform"
+      deploy_path: "/opt/services/arch-platform"
+      compose_file: "docker-compose.yml"
+      healthcheck_url: "http://127.0.0.1:8088/healthz"
+      arch_component: "arch-platform-backend"
+      arch_platform_url: "https://arch.intelab.cn"
+    secrets:
+      ssh_user: ${{ secrets.SSH_USER_SELF }}
+      ssh_key: ${{ secrets.SSH_KEY_SELF }}
+      arch_api_key: ${{ secrets.ARCH_API_KEY_SELF }}
