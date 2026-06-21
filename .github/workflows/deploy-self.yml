@@ -1,13 +1,55 @@
+# .github/workflows/deploy-self.yml
+# 本仓库自身 push 自动部署 — 复用 .github/workflows/deploy.yml 模板
+#
+# GitHub 限制:job 不能同时用 `environment:` 和 `uses:`(reusable workflow)。
+# 解决:拆 2 个 job — prep 读 env secrets,deploy 拿 prep 输出当 secrets 转发。
+#
+# 配置:
+#   production environment 内 3 个 secrets:
+#     SSH_USER_SELF / SSH_KEY_SELF / ARCH_API_KEY_SELF
+#   production environment 保护规则:只能从 main 分支部署
+
 name: Deploy Self
 
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - ".claude/**"
   workflow_dispatch:
 
 jobs:
-  deploy:
+  # Job 1:读 environment secrets(只能这样才能读 env-scoped secrets)
+  prep:
+    name: Read production secrets
+    runs-on: ubuntu-latest
     environment: production
+    outputs:
+      ssh_user: ${{ steps.read.outputs.ssh_user }}
+      ssh_key: ${{ steps.read.outputs.ssh_key }}
+      arch_api_key: ${{ steps.read.outputs.arch_api_key }}
+    steps:
+      - name: Read secrets
+        id: read
+        run: |
+          {
+            echo "ssh_user=$SSH_USER"
+            echo "arch_api_key=$ARCH_API_KEY"
+            echo "ssh_key<<EOF_$RANDOM"
+            echo "$SSH_KEY"
+            echo "EOF_$RANDOM"
+          } >> "$GITHUB_OUTPUT"
+        env:
+          SSH_USER: ${{ secrets.SSH_USER_SELF }}
+          SSH_KEY: ${{ secrets.SSH_KEY_SELF }}
+          ARCH_API_KEY: ${{ secrets.ARCH_API_KEY_SELF }}
+
+  # Job 2:调用 reusable workflow,把 prep 输出当 secrets 转发
+  deploy:
+    name: Deploy arch-platform to huawei-1
+    needs: prep
     uses: ./.github/workflows/deploy.yml
     with:
       host: "124.71.219.208"
@@ -18,6 +60,6 @@ jobs:
       arch_component: "arch-platform-backend"
       arch_platform_url: "https://arch.intelab.cn"
     secrets:
-      ssh_user: ${{ secrets.SSH_USER_SELF }}
-      ssh_key: ${{ secrets.SSH_KEY_SELF }}
-      arch_api_key: ${{ secrets.ARCH_API_KEY_SELF }}
+      ssh_user: ${{ needs.prep.outputs.ssh_user }}
+      ssh_key: ${{ needs.prep.outputs.ssh_key }}
+      arch_api_key: ${{ needs.prep.outputs.arch_api_key }}
