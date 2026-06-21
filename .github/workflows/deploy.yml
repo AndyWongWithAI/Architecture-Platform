@@ -65,6 +65,16 @@ jobs:
     name: Deploy to ${{ inputs.host }}
     runs-on: ubuntu-latest
     steps:
+      - name: Debug secrets
+        run: |
+          echo "host=${{ inputs.host }}"
+          echo "user_len=${#SSH_USER}"
+          echo "key_len=${#SSH_KEY}"
+          echo "ssh_user secret value: [$SSH_USER]"
+        env:
+          SSH_USER: ${{ secrets.ssh_user }}
+          SSH_KEY: ${{ secrets.ssh_key }}
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
         with:
