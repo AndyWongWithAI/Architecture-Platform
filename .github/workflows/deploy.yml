@@ -83,12 +83,20 @@ jobs:
             # 首次部署:clone;后续:pull
             if [ ! -d "$DEPLOY_PATH/.git" ]; then
               echo "[deploy] 首次部署,git clone..."
-              # 备份 .env(不提交到 git,clone 后恢复)
+              # 备份数据 + 配置(关键!不能丢)
+              [ -d "$DEPLOY_PATH/data" ] && cp -r "$DEPLOY_PATH/data" "/tmp/${BASE_NAME}.data.bak" || true
+              [ -d "$DEPLOY_PATH/backups" ] && cp -r "$DEPLOY_PATH/backups" "/tmp/${BASE_NAME}.backups.bak" || true
               [ -f "$DEPLOY_PATH/.env" ] && cp "$DEPLOY_PATH/.env" "/tmp/${BASE_NAME}.env.bak" || true
               cd "$PARENT_DIR"
-              rm -rf "$BASE_NAME"
+              # 只删代码,不动 data/ backups/
+              find "$BASE_NAME" -maxdepth 1 -mindepth 1 \
+                ! -name 'data' ! -name 'backups' \
+                -exec rm -rf {} +
               git clone "$REPO_URL" "$BASE_NAME"
               cd "$BASE_NAME"
+              # 恢复数据 + 配置
+              [ -d "/tmp/${BASE_NAME}.data.bak" ] && { rm -rf data; mv "/tmp/${BASE_NAME}.data.bak" data; } || true
+              [ -d "/tmp/${BASE_NAME}.backups.bak" ] && { rm -rf backups; mv "/tmp/${BASE_NAME}.backups.bak" backups; } || true
               [ -f "/tmp/${BASE_NAME}.env.bak" ] && mv "/tmp/${BASE_NAME}.env.bak" .env || true
               [ ! -f .env ] && cp .env.example .env || true
             else
