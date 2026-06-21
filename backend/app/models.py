@@ -74,6 +74,31 @@ class FeedbackDecision(str, enum.Enum):
     keep_as_is = "keep_as_is"; reassess_form = "reassess_form"
 
 
+# ===== Requirement (Phase 1 需求登记) =====
+class RequirementType(str, enum.Enum):
+    new_feature = "new_feature"
+    bug_fix = "bug_fix"
+    refactor = "refactor"
+    optimization = "optimization"
+    compliance = "compliance"
+    tech_debt = "tech_debt"
+
+
+class RequirementPriority(str, enum.Enum):
+    P0 = "P0"; P1 = "P1"; P2 = "P2"; P3 = "P3"
+
+
+class RequirementStatus(str, enum.Enum):
+    draft = "draft"
+    triaged = "triaged"
+    scheduled = "scheduled"
+    in_progress = "in_progress"
+    implemented = "implemented"
+    verified = "verified"
+    rejected = "rejected"
+    cancelled = "cancelled"
+
+
 # ===== Component =====
 class Component(Base):
     __tablename__ = "components"
@@ -185,5 +210,42 @@ class Feedback(Base):
     reused_in_projects = Column(JSON, default=list)
     decided_at = Column(DateTime)
     created_at = Column(DateTime, default=now_utc, nullable=False)
+    # 追溯链:反馈可显式回链到它触发的需求(nullable,不破坏现有数据)
+    requirement_id = Column(String, ForeignKey("requirements.id"), index=True)
 
     version = relationship("Version", back_populates="feedbacks")
+
+
+# ===== Requirement =====
+class Requirement(Base):
+    __tablename__ = "requirements"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    component_id = Column(String, ForeignKey("components.id"), index=True)
+    title = Column(String, nullable=False)
+    description = Column(Text)
+    user_story = Column(Text)
+    acceptance_criteria = Column(JSON, default=list)
+    nfr = Column(JSON, default=dict)
+    type = Column(Enum(RequirementType), nullable=False, index=True)
+    priority = Column(Enum(RequirementPriority), default=RequirementPriority.P2, nullable=False, index=True)
+    status = Column(Enum(RequirementStatus), default=RequirementStatus.draft, nullable=False, index=True)
+    proposer = Column(String, nullable=False, index=True)
+    assignee = Column(String, index=True)
+    due_date = Column(DateTime)
+    tags = Column(JSON, default=list)
+    decided_at = Column(DateTime)
+    closed_at = Column(DateTime)
+    # 软删除独立 bool,不污染状态机 enum(对齐 Component.archived 的隔离原则)
+    is_archived = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, default=now_utc, nullable=False)
+    updated_at = Column(DateTime, default=now_utc, onupdate=now_utc, nullable=False)
+
+    component = relationship("Component")
+    # 通过 backref 让 Feedback 反向访问 requirement_id
+
+    __table_args__ = (
+        Index("idx_req_status_priority", "status", "priority"),
+        Index("idx_req_component_status", "component_id", "status"),
+        Index("idx_req_assignee_status", "assignee", "status"),
+    )

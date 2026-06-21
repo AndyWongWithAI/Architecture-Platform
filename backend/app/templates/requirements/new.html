@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}登记需求{% endblock %}
+{% block content %}
+<article>
+    <header>
+        <h1>📝 登记新需求</h1>
+        {% if prefill_comp %}
+        <p>预填组件:<a href="/components/{{ prefill_comp.name }}"><strong>{{ prefill_comp.name }}</strong></a> ({{ prefill_comp.title }})</p>
+        {% endif %}
+    </header>
+
+    <form method="post" action="/requirements/create">
+        {% if prefill_comp %}
+        <input type="hidden" name="component_id" value="{{ prefill_comp.id }}">
+        {% endif %}
+
+        <label>
+            <span>标题(20-200 字符)</span>
+            <input type="text" name="title" required minlength="20" maxlength="200"
+                   placeholder="例:Redis 支持 cluster 模式自动 failover">
+        </label>
+
+        <label>
+            <span>类型</span>
+            <select name="type" required>
+                <option value="new_feature">新功能</option>
+                <option value="bug_fix">Bug 修复</option>
+                <option value="refactor">重构</option>
+                <option value="optimization">优化</option>
+                <option value="compliance">合规</option>
+                <option value="tech_debt">技术债</option>
+            </select>
+        </label>
+
+        <label>
+            <span>优先级</span>
+            <select name="priority">
+                <option value="P0">P0 紧急(24h 响应)</option>
+                <option value="P1">P1 高(1 周内)</option>
+                <option value="P2" selected>P2 普通(当前迭代)</option>
+                <option value="P3">P3 低(backlog)</option>
+            </select>
+        </label>
+
+        <label>
+            <span>描述</span>
+            <textarea name="description" rows="3" placeholder="背景/上下文"></textarea>
+        </label>
+
+        <label>
+            <span>用户故事</span>
+            <textarea name="user_story" rows="2" placeholder="As a [角色], I want [能力], so that [价值]"></textarea>
+        </label>
+
+        <div class="grid">
+            <label>
+                <span>负责人</span>
+                <input type="text" name="assignee" placeholder="@用户名">
+            </label>
+            <label>
+                <span>截止日期</span>
+                <input type="date" name="due_date">
+            </label>
+        </div>
+
+        <label>
+            <span>标签(逗号分隔)</span>
+            <input type="text" name="tags" placeholder="redis, ha, ops">
+        </label>
+
+        <button type="submit">登记</button>
+        <a href="/requirements" role="button" class="secondary">取消</a>
+    </form>
+</article>
+{% endblock %}

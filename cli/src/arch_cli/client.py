@@ -145,6 +145,37 @@ class ArchClient:
     def patch_feedback(self, feedback_id: str, data: dict) -> dict:
         return self.request("PATCH", f"/api/v1/feedbacks/{feedback_id}", json=data)
 
+    # ——— Requirement (Phase 1) ———
+
+    def list_requirements(self, **filters) -> dict:
+        return self.request("GET", "/api/v1/requirements", params=filters)
+
+    def get_requirement(self, req_id: str) -> dict:
+        return self.request("GET", f"/api/v1/requirements/{req_id}")
+
+    def create_requirement(self, component_id: str, data: dict) -> dict:
+        """嵌套入口:绑 component"""
+        return self.request("POST", f"/api/v1/components/{component_id}/requirements", json=data)
+
+    def create_requirement_flat(self, data: dict) -> dict:
+        """平铺入口:不绑 component"""
+        return self.request("POST", "/api/v1/requirements", json=data)
+
+    def patch_requirement(self, req_id: str, data: dict) -> dict:
+        return self.request("PATCH", f"/api/v1/requirements/{req_id}", json=data)
+
+    def archive_requirement(self, req_id: str) -> dict:
+        return self.request("DELETE", f"/api/v1/requirements/{req_id}")
+
+    def restore_requirement(self, req_id: str) -> dict:
+        return self.request("POST", f"/api/v1/requirements/{req_id}/restore")
+
+    def link_feedback_requirement(self, fb_id: str, req_id: str) -> dict:
+        return self.request(
+            "POST", f"/api/v1/feedbacks/{fb_id}/link-requirement",
+            json={"requirement_id": req_id},
+        )
+
     # ——— Search / Tree / Use ———
 
     def search(self, q: str) -> dict:

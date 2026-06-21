@@ -85,3 +85,62 @@ def update_feedback(
     db.commit()
     db.refresh(fb)
     return fb
+
+
+# ===== 追溯链:Feedback ↔ Requirement(2026-06-21 Phase 1.2)=====
+
+
+@router.get("/{feedback_id}/requirement")
+def get_feedback_requirement(feedback_id: str, db: Session = Depends(get_db)):
+    """反向追溯:Feedback → Requirement"""
+    from ..models import Requirement
+    from ..schemas import RequirementOut
+    fb = db.query(Feedback).filter(Feedback.id == feedback_id).first()
+    if not fb:
+        raise HTTPException(404, "feedback not found")
+    if not fb.requirement_id:
+        raise HTTPException(404, "feedback has no linked requirement")
+    req = db.query(Requirement).filter(Requirement.id == fb.requirement_id).first()
+    if not req:
+        raise HTTPException(404, "linked requirement not found")
+    return RequirementOut.model_validate(req)
+
+
+@router.post(
+    "/{feedback_id}/link-requirement",
+    dependencies=[Depends(require_api_key)],
+)
+def link_feedback_to_requirement(
+    feedback_id: str,
+    payload: dict,
+    db: Session = Depends(get_db),
+):
+    """显式回链 feedback → requirement(避免 FeedbackCreate schema 变更)"""
+    from ..models import Requirement
+    from ..schemas import RequirementLinkFeedback
+    fb = db.query(Feedback).filter(Feedback.id == feedback_id).first()
+    if not fb:
+        raise HTTPException(404, "feedback not found")
+    parsed = RequirementLinkFeedback(**payload)
+    req = db.query(Requirement).filter(Requirement.id == parsed.requirement_id).first()
+    if not req:
+        raise HTTPException(422, f"requirement '{parsed.requirement_id}' not found")
+    fb.requirement_id = req.id
+    db.commit()
+    db.refresh(fb)
+    return {"feedback_id": fb.id, "requirement_id": fb.requirement_id}
+
+
+@router.delete(
+    "/{feedback_id}/link-requirement",
+    dependencies=[Depends(require_api_key)],
+)
+def unlink_feedback_from_requirement(feedback_id: str, db: Session = Depends(get_db)):
+    """取消回链"""
+    fb = db.query(Feedback).filter(Feedback.id == feedback_id).first()
+    if not fb:
+        raise HTTPException(404, "feedback not found")
+    fb.requirement_id = None
+    db.commit()
+    db.refresh(fb)
+    return {"feedback_id": fb.id, "requirement_id": None}

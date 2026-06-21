@@ -29,21 +29,21 @@ COMPONENTS_DIR = os.path.join(
 
 
 def _setup():
-    """建临时表 + 导入 9 个种子组件"""
+    """建临时表 + 导入 9 个种子组件(幂等:重复调用安全)"""
     init_db()
     db = SessionLocal()
     try:
         importer = MarkdownImporter(db, COMPONENTS_DIR)
         result = importer.import_all()
         print(f"\n[setup] Import: {result}")
-        assert result.created >= 9, f"expected ≥9 created, got {result.created}"
         assert len(result.errors) == 0, f"errors: {result.errors}"
+        # 不再断言 created ≥ 9 — 第二次调用时 created=0(全部 update),但仍是有效 seed
     finally:
         db.close()
 
 
 def test_health():
-    _setup()
+    _setup()  # feedback 53fe92a4:确保 DB + 组件已 seed
     client = TestClient(app)
     r = client.get("/healthz")
     assert r.status_code == 200
@@ -379,6 +379,242 @@ def test_search():
     print(f"  → search '高并发': {fb_count} feedbacks matched")
 
 
+# ===== Phase 1.2 Requirement 模块(2026-06-21)=====
+
+
+def test_post_requirement_flat():
+    """POST /api/v1/requirements 平铺创建(不绑 component)"""
+    _setup()  # feedback 53fe92a4:确保 DB + 组件已 seed;不调 _setup() 是因为它会重 import 组件
+    client = TestClient(app)
+    payload = {
+        "title": "建立 GDPR 数据合规审计流程(全公司级)",
+        "description": "监管要求 2026-Q3 前完成 GDPR 合规审计流程的搭建",
+        "user_story": "As a DPO, I want a repeatable audit flow so that we can prove compliance quarterly",
+        "acceptance_criteria": [
+            {"given": "客户数据变更", "when": "进入审计流程", "then": "30 天内产出审计报告"}
+        ],
+        "nfr": {"compliance": "GDPR Article 30"},
+        "type": "compliance",
+        "priority": "P1",
+        "tags": ["gdpr", "audit"],
+    }
+    r = client.post("/api/v1/requirements", json=payload)
+    assert r.status_code == 201, f"got {r.status_code}: {r.text}"
+    data = r.json()
+    assert data["title"].startswith("建立 GDPR")
+    assert data["status"] == "draft"
+    assert data["priority"] == "P1"
+    assert data["type"] == "compliance"
+    assert data["component_id"] is None  # 平铺入口无 component
+    print(f"  → POST requirement (flat): {data['id'][:8]}... type={data['type']}")
+
+
+def test_post_requirement_nested():
+    """POST /api/v1/components/{id}/requirements 嵌套创建(绑 component)"""
+    _setup()  # feedback 53fe92a4:确保 DB + 组件已 seed
+    client = TestClient(app)
+    payload = {
+        "title": "Redis 支持 cluster 模式自动 failover",
+        "description": "当 master 节点故障时,自动选举新 master,客户端无感知",
+        "user_story": "As a SRE, I want auto-failover so that SLA 99.99% is achievable",
+        "acceptance_criteria": [
+            {"given": "master 节点宕机", "when": "sentinel 检测超时", "then": "30s 内完成 master 切换"},
+            {"given": "客户端连接", "when": "切换发生", "then": "连接重试透明成功"},
+        ],
+        "nfr": {"availability": "99.99%"},
+        "type": "new_feature",
+        "priority": "P0",
+        "assignee": "andy",
+        "tags": ["redis", "ha"],
+    }
+    r = client.post("/api/v1/components/redis/requirements", json=payload)
+    assert r.status_code == 201, f"got {r.status_code}: {r.text}"
+    data = r.json()
+    assert data["component_id"] is not None  # 嵌套入口自动绑 component
+    assert data["priority"] == "P0"
+    assert data["type"] == "new_feature"
+    print(f"  → POST nested requirement: redis cluster failover (P0)")
+
+
+def test_post_requirement_title_too_short_422():
+    """title < 20 字符 → 422"""
+    _setup()  # feedback 53fe92a4:确保 DB + 组件已 seed
+    client = TestClient(app)
+    r = client.post("/api/v1/requirements", json={
+        "title": "太短了",  # 4 字符
+        "type": "new_feature",
+    })
+    assert r.status_code == 422, f"expected 422, got {r.status_code}"
+    print(f"  → POST short title: 422 ✓")
+
+
+def test_patch_requirement_transition_triaged_requires_assignee_422():
+    """draft → triaged 不填 assignee → 422"""
+    _setup()  # feedback 53fe92a4:确保 DB + 组件已 seed
+    client = TestClient(app)
+    # 自给自足:创建 draft(不依赖其他测试)
+    r = client.post("/api/v1/requirements", json={
+        "title": "测试需求-状态转换必填校验-不应保留-test-only",
+        "type": "new_feature",
+        "priority": "P2",
+    })
+    assert r.status_code == 201
+    req_id = r.json()["id"]
+    # 不传 assignee,直接转 triaged
+    r = client.patch(f"/api/v1/requirements/{req_id}", json={"status": "triaged"})
+    assert r.status_code == 422, f"expected 422, got {r.status_code}: {r.text}"
+    print(f"  → PATCH triaged without assignee: 422 ✓")
+
+
+def test_patch_requirement_transition_invalid_422():
+    """draft → verified(跳级) → 422"""
+    _setup()  # feedback 53fe92a4:确保 DB + 组件已 seed
+    client = TestClient(app)
+    r = client.post("/api/v1/requirements", json={
+        "title": "测试需求-状态跳级应被拒绝-不应保留-test-only",
+        "type": "refactor",
+        "priority": "P3",
+    })
+    assert r.status_code == 201
+    req_id = r.json()["id"]
+    r = client.patch(f"/api/v1/requirements/{req_id}", json={
+        "status": "verified",
+        "assignee": "andy",
+    })
+    assert r.status_code == 422, f"expected 422, got {r.status_code}"
+    print(f"  → PATCH draft → verified (skip): 422 ✓")
+
+
+def test_patch_requirement_transition_success():
+    """draft → triaged (with assignee) → 200 + decided_at 自动设置"""
+    _setup()  # feedback 53fe92a4:确保 DB + 组件已 seed
+    client = TestClient(app)
+    r = client.post("/api/v1/requirements", json={
+        "title": "测试需求-正常状态流转-decided-at-应自动设置",
+        "type": "new_feature",
+        "priority": "P2",
+    })
+    assert r.status_code == 201
+    req_id = r.json()["id"]
+    r = client.patch(f"/api/v1/requirements/{req_id}", json={
+        "status": "triaged",
+        "assignee": "andy",
+    })
+    assert r.status_code == 200, f"got {r.status_code}: {r.text}"
+    data = r.json()
+    assert data["status"] == "triaged"
+    assert data["assignee"] == "andy"
+    assert data["decided_at"] is not None, "decided_at should be auto-set"
+    print(f"  → PATCH triaged (with assignee): 200, decided_at auto-set ✓")
+
+
+def test_patch_requirement_rejected_requires_description_422():
+    """triaged → rejected 不填 description → 422"""
+    _setup()  # feedback 53fe92a4:确保 DB + 组件已 seed
+    client = TestClient(app)
+    # 自给自足:创建并推到 triaged
+    r = client.post("/api/v1/requirements", json={
+        "title": "测试需求-rejected-必填校验-不应保留-test-only",
+        "type": "new_feature",
+        "priority": "P2",
+    })
+    assert r.status_code == 201
+    req_id = r.json()["id"]
+    r = client.patch(f"/api/v1/requirements/{req_id}", json={
+        "status": "triaged",
+        "assignee": "andy",
+    })
+    assert r.status_code == 200
+    # 不填 description 转 rejected
+    r = client.patch(f"/api/v1/requirements/{req_id}", json={"status": "rejected"})
+    assert r.status_code == 422, f"expected 422, got {r.status_code}"
+    print(f"  → PATCH rejected without description: 422 ✓")
+
+
+def test_delete_requirement_archive():
+    """DELETE → 软删除(is_archived=True)"""
+    _setup()  # feedback 53fe92a4:确保 DB + 组件已 seed
+    client = TestClient(app)
+    # 创建一个临时需求用于归档(feedback cc15cd4f:title 至少 20 字符)
+    r = client.post("/api/v1/requirements", json={
+        "title": "临时需求-仅用于测试归档功能-不应在默认列表出现",
+        "type": "tech_debt",
+        "priority": "P3",
+    })
+    assert r.status_code == 201, f"got {r.status_code}: {r.text}"
+    req_id = r.json()["id"]
+    # 归档
+    r = client.delete(f"/api/v1/requirements/{req_id}")
+    assert r.status_code == 200
+    assert r.json()["is_archived"] is True
+    # 默认 list 不应出现(include_archived=False)
+    r = client.get("/api/v1/requirements")
+    ids = [it["id"] for it in r.json()["items"]]
+    assert req_id not in ids, "archived req 不应在默认列表"
+    # include_archived=True 应出现
+    r = client.get("/api/v1/requirements?include_archived=true")
+    ids = [it["id"] for it in r.json()["items"]]
+    assert req_id in ids, "archived req 应在 include_archived 列表"
+    print(f"  → DELETE archive: is_archived=True, 默认列表隐藏 ✓")
+
+
+def test_get_component_requirements_reverse():
+    """GET /components/{id}/requirements 反查"""
+    _setup()  # feedback 53fe92a4:确保 DB + 组件已 seed
+    client = TestClient(app)
+    # 之前 test_post_requirement_nested 创建了 redis 的需求
+    r = client.get("/api/v1/components/redis/requirements")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["total"] >= 1
+    titles = [it["title"] for it in data["items"]]
+    assert any("cluster" in t for t in titles)
+    print(f"  → GET component/requirements: redis 有 {data['total']} 个需求")
+
+
+def test_link_feedback_requirement():
+    """POST /feedbacks/{id}/link-requirement + GET /feedbacks/{id}/requirement"""
+    _setup()  # feedback 53fe92a4:确保 DB + 组件已 seed
+    client = TestClient(app)
+    # 拿 feedback(id 在 test_post_feedback_success 创建)
+    r = client.get("/api/v1/feedbacks")
+    fb_id = r.json()["items"][0]["id"]
+    # 拿一个 requirement id
+    r = client.get("/api/v1/requirements?include_archived=true")
+    req_id = r.json()["items"][0]["id"]
+    # link
+    r = client.post(f"/api/v1/feedbacks/{fb_id}/link-requirement", json={"requirement_id": req_id})
+    assert r.status_code == 200, f"got {r.status_code}: {r.text}"
+    assert r.json()["requirement_id"] == req_id
+    # 反向查询
+    r = client.get(f"/api/v1/feedbacks/{fb_id}/requirement")
+    assert r.status_code == 200
+    assert r.json()["id"] == req_id
+    print(f"  → POST link + GET reverse: feedback → requirement 追溯链 ✓")
+
+
+def test_requirement_list_filters():
+    """GET /requirements 多维过滤"""
+    _setup()  # feedback 53fe92a4:确保 DB + 组件已 seed
+    client = TestClient(app)
+    # 按 priority 过滤
+    r = client.get("/api/v1/requirements?priority=P0")
+    assert r.status_code == 200
+    items = r.json()["items"]
+    for it in items:
+        assert it["priority"] == "P0"
+    # 按 type 过滤
+    r = client.get("/api/v1/requirements?type=compliance")
+    assert r.status_code == 200
+    items = r.json()["items"]
+    for it in items:
+        assert it["type"] == "compliance"
+    # 按 assignee 过滤
+    r = client.get("/api/v1/requirements?assignee=andy")
+    assert r.status_code == 200
+    print(f"  → GET filters: priority/type/assignee ✓")
+
+
 if __name__ == "__main__":
     test_health()
     test_list_all()
@@ -403,4 +639,16 @@ if __name__ == "__main__":
     test_patch_feedback_decision_required_422()
     test_patch_feedback_with_decision_success()
     test_search()
+    # Phase 1.2 Requirement 模块(2026-06-21)
+    test_post_requirement_flat()
+    test_post_requirement_nested()
+    test_post_requirement_title_too_short_422()
+    test_patch_requirement_transition_triaged_requires_assignee_422()
+    test_patch_requirement_transition_invalid_422()
+    test_patch_requirement_transition_success()
+    test_patch_requirement_rejected_requires_description_422()
+    test_delete_requirement_archive()
+    test_get_component_requirements_reverse()
+    test_link_feedback_requirement()
+    test_requirement_list_filters()
     print("\n✅ All tests passed!")

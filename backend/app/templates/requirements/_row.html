@@ -1,0 +1,9 @@
+{# 需求列表行 partial — 供 htmx 局部替换 #}
+<tr>
+    <td><span class="{{ req.priority | req_priority_color }}"><strong>{{ req.priority }}</strong></span></td>
+    <td>{{ req.type | req_type_zh }}</td>
+    <td>{{ req.status | req_status_zh }}</td>
+    <td><a href="/requirements/{{ req.id }}">{{ req.title | truncate(60) }}</a></td>
+    <td>{{ req.assignee or '-' }}</td>
+    <td>{{ req.component_id[:8] if req.component_id else '-' }}</td>
+</tr>

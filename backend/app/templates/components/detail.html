@@ -102,6 +102,28 @@
 <p><em>暂无反馈(用 <code>arch feedback create</code> 或 GitHub Action 登记)</em></p>
 {% endif %}
 
+<!-- Phase 1.2 关联需求 -->
+<h3>关联需求({{ requirements | length }})</h3>
+{% if requirements %}
+<table>
+    <thead><tr><th>优先级</th><th>类型</th><th>状态</th><th>标题</th><th>负责人</th><th>时间</th></tr></thead>
+    <tbody>
+    {% for r in requirements %}
+        <tr>
+            <td><span class="badge {{ r.priority | req_priority_color }}">{{ r.priority }}</span></td>
+            <td>{{ r.type | req_type_zh }}</td>
+            <td>{{ r.status | req_status_zh }}</td>
+            <td><a href="/requirements/{{ r.id }}">{{ r.title | truncate(60) }}</a></td>
+            <td>{{ r.assignee or '-' }}</td>
+            <td><small>{{ r.created_at | format_dt }}</small></td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p><em>暂无需求(<a href="/requirements/new?component={{ c.name }}">登记新需求 →</a>)</em></p>
+{% endif %}
+
 <hr>
 <p>
     <a href="/components" role="button" class="secondary outline">← 返回列表</a>

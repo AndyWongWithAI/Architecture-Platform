@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}需求详情{% endblock %}
+{% block content %}
+<article>
+    <header>
+        <div class="grid">
+            <h1 style="grid-column: span 2;">{{ req.title }}</h1>
+            <span class="contrast"><small>{{ req.id[:8] }}</small></span>
+        </div>
+        <p>
+            <span class="{{ req.priority | req_priority_color }}"><strong>{{ req.priority }}</strong></span>
+            · {{ req.type | req_type_zh }}
+            · {{ req.status | req_status_zh }}
+            {% if req.assignee %}· @{{ req.assignee }}{% endif %}
+            {% if req.component_id %}· <a href="/components/{{ req.component_id }}">组件</a>{% endif %}
+        </p>
+    </header>
+
+    {% if req.description %}
+    <h4>📝 描述</h4>
+    <p>{{ req.description }}</p>
+    {% endif %}
+
+    {% if req.user_story %}
+    <h4>👤 用户故事</h4>
+    <blockquote>{{ req.user_story }}</blockquote>
+    {% endif %}
+
+    {% if req.acceptance_criteria %}
+    <h4>✅ 验收标准</h4>
+    <ul>
+        {% for ac in req.acceptance_criteria %}
+        <li>
+            <strong>Given</strong> {{ ac.given }}<br>
+            <strong>When</strong> {{ ac.when }}<br>
+            <strong>Then</strong> {{ ac.then }}
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if req.nfr %}
+    <h4>⚙️ 非功能需求</h4>
+    <table>
+        {% for k, v in req.nfr.items() %}
+        <tr><th>{{ k }}</th><td>{{ v }}</td></tr>
+        {% endfor %}
+    </table>
+    {% endif %}
+
+    {% if req.tags %}
+    <h4>🏷️ 标签</h4>
+    <p>{% for t in req.tags %}<span class="secondary"><code>{{ t }}</code></span> {% endfor %}</p>
+    {% endif %}
+
+    <!-- 状态推进表单 -->
+    <h4>🔄 推进状态</h4>
+    <form hx-post="/requirements/{{ req.id }}/patch" hx-target="#status-msg" hx-swap="innerHTML">
+        <div class="grid">
+            <select name="status">
+                <option value="draft" {% if req.status == 'draft' %}selected{% endif %}>草稿</option>
+                <option value="triaged" {% if req.status == 'triaged' %}selected{% endif %}>已分诊</option>
+                <option value="scheduled" {% if req.status == 'scheduled' %}selected{% endif %}>已排期</option>
+                <option value="in_progress" {% if req.status == 'in_progress' %}selected{% endif %}>进行中</option>
+                <option value="implemented" {% if req.status == 'implemented' %}selected{% endif %}>已实现</option>
+                <option value="verified" {% if req.status == 'verified' %}selected{% endif %}>已验证</option>
+                <option value="rejected" {% if req.status == 'rejected' %}selected{% endif %}>已拒绝</option>
+                <option value="cancelled" {% if req.status == 'cancelled' %}selected{% endif %}>已取消</option>
+            </select>
+            <input type="text" name="assignee" value="{{ req.assignee or '' }}" placeholder="负责人">
+            <input type="text" name="description" value="{{ req.description or '' }}" placeholder="描述(转 rejected/cancelled 必填)">
+            <button type="submit">推进</button>
+        </div>
+    </form>
+    <div id="status-msg"></div>
+
+    <!-- 追溯链:关联 feedback -->
+    {% if feedbacks %}
+    <h4>🔗 关联反馈({{ feedbacks | length }} 个)</h4>
+    <ul>
+        {% for fb in feedbacks %}
+        <li>
+            <a href="/feedbacks/{{ fb.id }}">{{ fb.bug_summary | truncate(60) }}</a>
+            <span class="secondary">({{ fb.severity | severity_zh }} / {{ fb.status | status_zh }})</span>
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    <p>
+        <small>
+            创建于 {{ req.created_at | format_dt }}
+            {% if req.decided_at %}· 决策于 {{ req.decided_at | format_dt }}{% endif %}
+            {% if req.closed_at %}· 关闭于 {{ req.closed_at | format_dt }}{% endif %}
+        </small>
+    </p>
+</article>
+{% endblock %}

@@ -203,6 +203,73 @@ TOOL_DEFINITIONS = [
             "required": ["feedback_id"],
         },
     ),
+    # —— Requirements (Phase 1.2 2026-06-21)——
+    Tool(
+        name="list_requirements",
+        description="列出需求(Phase 1 需求登记)。可按 status/priority/type/component_id/assignee 过滤。",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "status": {"type": "string", "enum": ["draft", "triaged", "scheduled", "in_progress", "implemented", "verified", "rejected", "cancelled"]},
+                "priority": {"type": "string", "enum": ["P0", "P1", "P2", "P3"]},
+                "type": {"type": "string", "enum": ["new_feature", "bug_fix", "refactor", "optimization", "compliance", "tech_debt"]},
+                "assignee": {"type": "string"},
+                "component_id": {"type": "string"},
+                "include_archived": {"type": "boolean", "default": False},
+                "limit": {"type": "integer", "default": 50},
+            },
+        },
+    ),
+    Tool(
+        name="create_requirement",
+        description="登记新需求(Phase 1 需求登记)。component_id 可选——不传则创建无组件归口的需求(合规/流程类)。",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "component_id": {"type": "string", "description": "关联组件 id 或 name(嵌套入口)"},
+                "title": {"type": "string", "description": "需求标题(20-200 字符)"},
+                "type": {"type": "string", "enum": ["new_feature", "bug_fix", "refactor", "optimization", "compliance", "tech_debt"]},
+                "priority": {"type": "string", "enum": ["P0", "P1", "P2", "P3"], "default": "P2"},
+                "user_story": {"type": "string"},
+                "acceptance_criteria": {"type": "array", "items": {"type": "object", "properties": {"given": {"type": "string"}, "when": {"type": "string"}, "then": {"type": "string"}}}},
+                "nfr": {"type": "object", "additionalProperties": {"type": "string"}},
+                "proposer": {"type": "string", "default": "mcp"},
+                "assignee": {"type": "string"},
+                "due_date": {"type": "string"},
+                "tags": {"type": "array", "items": {"type": "string"}},
+                "description": {"type": "string"},
+            },
+            "required": ["title", "type"],
+        },
+    ),
+    Tool(
+        name="get_requirement",
+        description="按 id 取需求详情。",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "requirement_id": {"type": "string"},
+            },
+            "required": ["requirement_id"],
+        },
+    ),
+    Tool(
+        name="update_requirement",
+        description="更新需求(状态 / 优先级 / 负责人)。注意状态机校验:draft→triaged 必填 assignee;implemented→verified 要求 component 有 version;终态必填 description。",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "requirement_id": {"type": "string"},
+                "status": {"type": "string", "enum": ["draft", "triaged", "scheduled", "in_progress", "implemented", "verified", "rejected", "cancelled"]},
+                "priority": {"type": "string", "enum": ["P0", "P1", "P2", "P3"]},
+                "assignee": {"type": "string"},
+                "description": {"type": "string"},
+                "due_date": {"type": "string"},
+                "tags": {"type": "array", "items": {"type": "string"}},
+            },
+            "required": ["requirement_id"],
+        },
+    ),
 ]
 
 
@@ -263,6 +330,22 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             result = tools.feedbacks.create_feedback(**arguments)
         elif name == "update_feedback":
             result = tools.feedbacks.update_feedback(**arguments)
+        elif name == "list_requirements":
+            result = tools.requirements.list_requirements(
+                status=arguments.get("status"),
+                priority=arguments.get("priority"),
+                type=arguments.get("type"),
+                assignee=arguments.get("assignee"),
+                component_id=arguments.get("component_id"),
+                include_archived=arguments.get("include_archived", False),
+                limit=arguments.get("limit", 50),
+            )
+        elif name == "create_requirement":
+            result = tools.requirements.create_requirement(**arguments)
+        elif name == "get_requirement":
+            result = tools.requirements.get_requirement(arguments["requirement_id"])
+        elif name == "update_requirement":
+            result = tools.requirements.update_requirement(**arguments)
         else:
             return [TextContent(type="text", text=json.dumps({"error": f"unknown tool: {name}"}, ensure_ascii=False))]
 

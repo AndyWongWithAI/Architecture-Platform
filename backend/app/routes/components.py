@@ -140,6 +140,47 @@ def get_component_feedbacks(component_id: str, db: Session = Depends(get_db)):
     return {"items": items, "total": len(items)}
 
 
+# Phase 1.2(2026-06-21):组件关联需求端点 — 嵌套创建 + 反查
+@router.get("/{component_id}/requirements")
+def get_component_requirements(component_id: str, db: Session = Depends(get_db)):
+    """反查:该 component 下登记的所有需求"""
+    from ..models import Requirement
+    comp = db.query(Component).filter(
+        (Component.id == component_id) | (Component.name == component_id)
+    ).first()
+    if not comp:
+        raise HTTPException(404, "component not found")
+    items = (
+        db.query(Requirement)
+        .filter(Requirement.component_id == comp.id, Requirement.is_archived == False)  # noqa: E712
+        .order_by(Requirement.priority.asc(), Requirement.created_at.desc())
+        .all()
+    )
+    return {"items": items, "total": len(items)}
+
+
+@router.post(
+    "/{component_id}/requirements",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_api_key)],
+)
+def create_requirement_under_component(
+    component_id: str,
+    payload: dict,  # 透传给 requirements._create_requirement_impl
+    db: Session = Depends(get_db),
+):
+    """嵌套入口:在指定 component 下创建需求(component_id 自动绑定)"""
+    from ..schemas import RequirementCreate
+    from .requirements import _create_requirement_impl
+    # 强制 component_id 与 URL 一致,防止 body 里传别的 component_id
+    payload = dict(payload)
+    payload["component_id"] = component_id
+    parsed = RequirementCreate(**payload)
+    req = _create_requirement_impl(db, parsed)
+    from ..schemas import RequirementOut
+    return RequirementOut.model_validate(req)
+
+
 # ===== 写操作(POST / PATCH)— Phase 1.1 =====
 # 必须带 X-API-Key(由 require_api_key 强制)
 

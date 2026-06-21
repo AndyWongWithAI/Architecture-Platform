@@ -7,6 +7,7 @@ from .models import (
     Layer, Category, ComponentStatus, Scope, Language,
     DistributionForm, SemverIntent, DeploymentEnv,
     FeedbackSeverity, FeedbackStatus, FeedbackDecision,
+    RequirementType, RequirementPriority, RequirementStatus,
 )
 
 
@@ -172,11 +173,77 @@ class FeedbackOut(ORMBase):
     reused_in_projects: List[str] = []
     decided_at: Optional[datetime] = None
     created_at: datetime
+    # 追溯链:反馈可显式回链到触发的需求(nullable,2026-06-21 Phase 1 需求模块上线)
+    requirement_id: Optional[str] = None
 
 
 class FeedbackList(BaseModel):
     items: List[FeedbackOut]
     total: int
+
+
+# ===== Requirement (Phase 1 需求登记) =====
+class AcceptanceCriterion(BaseModel):
+    given: str
+    when: str
+    then: str
+
+
+class RequirementCreate(BaseModel):
+    component_id: Optional[str] = None
+    title: str = Field(..., min_length=20, max_length=200)
+    description: Optional[str] = None
+    user_story: Optional[str] = None
+    acceptance_criteria: List[AcceptanceCriterion] = []
+    nfr: Dict[str, str] = {}
+    type: RequirementType
+    priority: RequirementPriority = RequirementPriority.P2
+    assignee: Optional[str] = None
+    due_date: Optional[datetime] = None
+    tags: List[str] = []
+
+
+class RequirementUpdate(BaseModel):
+    # title 业务规则校验:仅 status=draft 时可改(对齐 Component.positioning 不可变原则)
+    title: Optional[str] = Field(None, min_length=20, max_length=200)
+    description: Optional[str] = None
+    priority: Optional[RequirementPriority] = None
+    status: Optional[RequirementStatus] = None
+    assignee: Optional[str] = None
+    due_date: Optional[datetime] = None
+    tags: Optional[List[str]] = None
+
+
+class RequirementOut(ORMBase):
+    id: str
+    component_id: Optional[str] = None
+    title: str
+    description: Optional[str] = None
+    user_story: Optional[str] = None
+    acceptance_criteria: List[AcceptanceCriterion] = []
+    nfr: Dict[str, str] = {}
+    type: RequirementType
+    priority: RequirementPriority
+    status: RequirementStatus
+    proposer: str
+    assignee: Optional[str] = None
+    due_date: Optional[datetime] = None
+    tags: List[str] = []
+    decided_at: Optional[datetime] = None
+    closed_at: Optional[datetime] = None
+    is_archived: bool = False
+    created_at: datetime
+    updated_at: datetime
+
+
+class RequirementList(BaseModel):
+    items: List[RequirementOut]
+    total: int
+
+
+class RequirementLinkFeedback(BaseModel):
+    """显式回链 feedback(避免 FeedbackCreate schema 变更)"""
+    requirement_id: str
 
 
 # ===== Search =====

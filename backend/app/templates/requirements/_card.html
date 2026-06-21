@@ -1,0 +1,11 @@
+{# 需求卡片 partial — 状态推进后 htmx 替换 #}
+<div id="status-msg">
+    <p>
+        ✓ 状态已推进:
+        <span class="{{ req.priority | req_priority_color }}"><strong>{{ req.priority }}</strong></span>
+        · {{ req.status | req_status_zh }}
+        {% if req.assignee %}· @{{ req.assignee }}{% endif %}
+        {% if req.decided_at %}· 决策于 {{ req.decided_at | format_dt }}{% endif %}
+        {% if req.closed_at %}· 关闭于 {{ req.closed_at | format_dt }}{% endif %}
+    </p>
+</div>

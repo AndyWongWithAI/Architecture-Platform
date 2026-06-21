@@ -17,7 +17,8 @@ from mcp.client.stdio import stdio_client
 
 
 MCP_SERVER_BIN = "/home/hq/.local/bin/arch-mcp-server"
-API_BASE = "https://arch.intelab.cn"
+API_BASE = os.environ.get("ARCH_MCP_TEST_URL", "https://arch.intelab.cn")
+_REQ_LOCAL = "127.0.0.1" in API_BASE or "localhost" in API_BASE
 
 
 async def _call_tool(tool_name: str, arguments: dict):
@@ -52,21 +53,25 @@ async def _list_tools():
 
 @pytest.mark.asyncio
 async def test_list_tools():
-    """MCP Server 应暴露 12 个 tools"""
+    """MCP Server 应暴露 16 个 tools(12 原 + 4 requirement Phase 1.2)"""
     names = sorted(await _list_tools())
     print(f"\n  注册的 tools: {names}")
 
     expected = [
+        # 原 12
         "create_component", "create_feedback",
         "get_component", "list_components",
         "list_deployments", "list_feedbacks",
         "list_versions", "register_deployment",
         "search_components", "tree_component",
         "update_feedback", "use_component",
+        # Phase 1.2 新增 4
+        "create_requirement", "get_requirement",
+        "list_requirements", "update_requirement",
     ]
     for t in expected:
         assert t in names, f"missing tool: {t}"
-    assert len(names) == 12, f"expected 12 tools, got {len(names)}: {names}"
+    assert len(names) == 16, f"expected 16 tools, got {len(names)}: {names}"
 
 
 @pytest.mark.asyncio
@@ -165,3 +170,73 @@ async def test_unknown_tool():
     """调用不存在的 tool 应返回 error,不抛异常"""
     data = await _call_tool("nonexistent_tool_xyz", {})
     assert "error" in data
+
+
+# ===== Phase 1.2 Requirement 模块(2026-06-21)=====
+
+
+@pytest.mark.asyncio
+async def test_list_requirements():
+    """list_requirements 端到端"""
+    if not _REQ_LOCAL:
+        pytest.skip("requirement endpoint 未部署到生产,跳过")
+    data = await _call_tool("list_requirements", {"limit": 20})
+    assert "items" in data
+    assert "total" in data
+    print(f"  → MCP list_requirements: total={data['total']}")
+
+
+@pytest.mark.asyncio
+async def test_create_requirement():
+    """create_requirement 端到端(平铺)"""
+    if not _REQ_LOCAL:
+        pytest.skip("requirement endpoint 未部署到生产,跳过")
+    data = await _call_tool("create_requirement", {
+        "title": "MCP 测试创建需求-不应保留-test-only-link",
+        "type": "tech_debt",
+        "priority": "P3",
+        "proposer": "mcp-test",
+    })
+    assert data.get("title", "").startswith("MCP 测试")
+    assert data["status"] == "draft"
+    assert data["priority"] == "P3"
+    print(f"  → MCP create_requirement: {data['id'][:8]}")
+
+
+@pytest.mark.asyncio
+async def test_get_requirement():
+    """get_requirement 端到端"""
+    if not _REQ_LOCAL:
+        pytest.skip("requirement endpoint 未部署到生产,跳过")
+    created = await _call_tool("create_requirement", {
+        "title": "MCP 测试 get-不应保留-test-only-link",
+        "type": "new_feature",
+        "priority": "P2",
+    })
+    req_id = created["id"]
+    data = await _call_tool("get_requirement", {"requirement_id": req_id})
+    assert data["id"] == req_id
+    assert data["priority"] == "P2"
+    print(f"  → MCP get_requirement: {data['id'][:8]}")
+
+
+@pytest.mark.asyncio
+async def test_update_requirement_status():
+    """update_requirement 状态流转"""
+    if not _REQ_LOCAL:
+        pytest.skip("requirement endpoint 未部署到生产,跳过")
+    created = await _call_tool("create_requirement", {
+        "title": "MCP 测试 update-status-不应保留-test-only-link",
+        "type": "new_feature",
+        "priority": "P2",
+    })
+    req_id = created["id"]
+    data = await _call_tool("update_requirement", {
+        "requirement_id": req_id,
+        "status": "triaged",
+        "assignee": "andy",
+    })
+    assert data["status"] == "triaged"
+    assert data["assignee"] == "andy"
+    assert data["decided_at"] is not None
+    print(f"  → MCP update_requirement: status=triaged, decided_at 自动设置 ✓")

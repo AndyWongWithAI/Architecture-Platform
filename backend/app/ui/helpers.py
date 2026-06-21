@@ -159,6 +159,52 @@ SEVERITY_ZH = {
     "low": "低",
 }
 
+# Phase 1.2 Requirement 模块(2026-06-21)
+REQ_PRIORITY_COLOR = {
+    "P0": "pico-color-red-650",
+    "P1": "pico-color-orange-500",
+    "P2": "pico-color-amber-450",
+    "P3": "pico-color-grey-500",
+}
+
+REQ_PRIORITY_ZH = {"P0": "P0 紧急", "P1": "P1 高", "P2": "P2 普通", "P3": "P3 低"}
+
+REQ_TYPE_ZH = {
+    "new_feature": "新功能",
+    "bug_fix": "Bug 修复",
+    "refactor": "重构",
+    "optimization": "优化",
+    "compliance": "合规",
+    "tech_debt": "技术债",
+}
+
+REQ_STATUS_ZH = {
+    "draft": "草稿",
+    "triaged": "已分诊",
+    "scheduled": "已排期",
+    "in_progress": "进行中",
+    "implemented": "已实现",
+    "verified": "已验证",
+    "rejected": "已拒绝",
+    "cancelled": "已取消",
+}
+
+
+def req_priority_color(p: Optional[str]) -> str:
+    return REQ_PRIORITY_COLOR.get(p or "", "")
+
+
+def req_priority_zh(p: Optional[str]) -> str:
+    return REQ_PRIORITY_ZH.get(p or "", p or "")
+
+
+def req_type_zh(t: Optional[str]) -> str:
+    return REQ_TYPE_ZH.get(t or "", t or "")
+
+
+def req_status_zh(s: Optional[str]) -> str:
+    return REQ_STATUS_ZH.get(s or "", s or "")
+
 
 def layer_zh(layer: Optional[str]) -> str:
     return LAYER_ZH.get(layer or "", layer or "")
@@ -198,3 +244,8 @@ def register_filters(env):
     env.filters["status_zh"] = status_zh
     env.filters["decision_zh"] = decision_zh
     env.filters["severity_zh"] = severity_zh
+    # Phase 1.2 Requirement
+    env.filters["req_priority_color"] = req_priority_color
+    env.filters["req_priority_zh"] = req_priority_zh
+    env.filters["req_type_zh"] = req_type_zh
+    env.filters["req_status_zh"] = req_status_zh

@@ -50,6 +50,8 @@ PAGES = [
     ("/components/docker", "组件详情"),
     ("/components/docker/tree", "依赖树"),
     ("/feedbacks", "反馈看板"),
+    ("/requirements", "需求列表"),  # Phase 1.2 2026-06-21
+    ("/requirements/new", "需求创建表单"),  # Phase 1.2
     ("/deployments", "部署地图"),
     ("/search?q=nginx", "搜索"),
     ("/healthz", "健康检查"),
@@ -238,3 +240,35 @@ def test_feedback_patch_proxy(backend):
          "DELETE FROM components WHERE name='ui-test-cache';"],
         capture_output=True, text=True, timeout=10,
     )
+
+
+# ===== Phase 1.2 Requirement UI(2026-06-21)=====
+
+
+def test_requirement_create_proxy(backend):
+    """端到端:UI 创建需求表单 → 服务器代理 → 后端已创建"""
+    # 1. 直接通过 API 创建需求(模拟 UI 表单提交)
+    create = httpx.post(
+        f"{backend}/requirements/create",
+        data={
+            "title": "UI 测试创建需求-不应保留-test-only-link",
+            "type": "tech_debt",
+            "priority": "P3",
+            "proposer": "ui-test",
+        },
+        timeout=5.0,
+        follow_redirects=False,
+    )
+    # 期望 303 重定向到 /requirements/{id}
+    assert create.status_code in (303, 307), f"期望重定向,got {create.status_code}: {create.text[:200]}"
+    location = create.headers.get("location", "")
+    assert "/requirements/" in location, f"重定向 location 应含 /requirements/:{location}"
+
+    # 2. 验证后端已有该需求
+    req_id = location.rsplit("/", 1)[-1]
+    chk = httpx.get(f"{backend}/api/v1/requirements/{req_id}", timeout=5.0)
+    assert chk.status_code == 200
+    data = chk.json()
+    assert data["title"].startswith("UI 测试")
+    assert data["priority"] == "P3"
+    print(f"  → UI requirement create proxy: {req_id[:8]} 重定向+创建成功")

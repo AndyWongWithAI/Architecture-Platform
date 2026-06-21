@@ -13,7 +13,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
 from .helpers import register_filters
-from .proxy import api_get, api_patch
+from .proxy import api_get, api_patch, api_post
 
 
 # ——— 模板配置 ———
@@ -133,6 +133,12 @@ async def component_detail(request: Request, name: str):
         default={"items": []},
     )
 
+    # Phase 1.2(2026-06-21):组件关联需求(嵌入 detail 页)
+    requirements = await _safe_get(
+        f"/api/v1/components/{name}/requirements",
+        default={"items": []},
+    )
+
     return templates.TemplateResponse(
         request,
         "components/detail.html",
@@ -140,6 +146,7 @@ async def component_detail(request: Request, name: str):
             "c": component,
             "versions": component.get("versions", []),
             "feedbacks": feedbacks.get("items", []),
+            "requirements": requirements.get("items", []),
         },
     )
 
@@ -295,9 +302,154 @@ async def search(request: Request, q: Optional[str] = Query(None)):
     return templates.TemplateResponse(request, "search.html", {"q": q, "data": data})
 
 
-# ——— 健康检查(复用后端) ———
+# ——— 健康检查(复用后端) ——
 
 @router.get("/healthz", response_class=JSONResponse)
 async def healthz():
     data = await _safe_get("/healthz", default={"status": "unknown", "db_check": False})
     return JSONResponse(data)
+
+
+# ===== Phase 1.2 需求模块 UI(2026-06-21)=====
+
+
+@router.get("/requirements", response_class=HTMLResponse)
+async def requirements_list(
+    request: Request,
+    status: Optional[str] = None,
+    priority: Optional[str] = None,
+    type: Optional[str] = None,
+    assignee: Optional[str] = None,
+    component: Optional[str] = None,
+):
+    """需求列表(对齐 feedbacks 看板布局但用表格,8 状态 Kanban 不可读)"""
+    params = {"limit": 200}
+    if status:
+        params["status"] = status
+    if priority:
+        params["priority"] = priority
+    if type:
+        params["type"] = type
+    if assignee:
+        params["assignee"] = assignee
+    if component:
+        params["component_id"] = component
+    data = await _safe_get("/api/v1/requirements", params, default={"items": [], "total": 0})
+    return templates.TemplateResponse(
+        request,
+        "requirements/list.html",
+        {
+            "items": data.get("items", []),
+            "total": data.get("total", 0),
+            "filters": {"status": status, "priority": priority, "type": type, "assignee": assignee, "component": component},
+        },
+    )
+
+
+@router.get("/requirements/new", response_class=HTMLResponse)
+async def requirement_new_form(request: Request, component: Optional[str] = None):
+    """创建需求表单(component 可预填)"""
+    prefill_comp = None
+    if component:
+        prefill_comp = await _safe_get(f"/api/v1/components/{component}")
+    return templates.TemplateResponse(
+        request,
+        "requirements/new.html",
+        {"prefill_comp": prefill_comp},
+    )
+
+
+@router.get("/requirements/{req_id}", response_class=HTMLResponse)
+async def requirement_detail(request: Request, req_id: str):
+    """需求详情"""
+    req = await _safe_get(f"/api/v1/requirements/{req_id}")
+    if not req:
+        raise HTTPException(status_code=404, detail=f"需求 {req_id} 不存在")
+    # 追溯链:关联 feedback
+    feedbacks = await _safe_get(
+        f"/api/v1/requirements/{req_id}/feedbacks",
+        default={"items": []},
+    )
+    return templates.TemplateResponse(
+        request,
+        "requirements/detail.html",
+        {"req": req, "feedbacks": feedbacks.get("items", [])},
+    )
+
+
+@router.post("/requirements/create")
+async def requirement_create_from_ui(
+    request: Request,
+    title: str = Form(...),
+    type: str = Form(...),
+    priority: str = Form("P2"),
+    component_id: Optional[str] = Form(None),
+    description: Optional[str] = Form(None),
+    user_story: Optional[str] = Form(None),
+    assignee: Optional[str] = Form(None),
+    due_date: Optional[str] = Form(None),
+    tags: Optional[str] = Form(None),
+    proposer: str = Form("web-ui"),
+):
+    """Web UI 创建表单提交(代理到 API)"""
+    payload = {
+        "title": title,
+        "type": type,
+        "priority": priority,
+        "proposer": proposer,
+    }
+    if description:
+        payload["description"] = description
+    if user_story:
+        payload["user_story"] = user_story
+    if assignee:
+        payload["assignee"] = assignee
+    if due_date:
+        payload["due_date"] = due_date
+    if tags:
+        payload["tags"] = [t.strip() for t in tags.split(",") if t.strip()]
+
+    path = (
+        f"/api/v1/components/{component_id}/requirements"
+        if component_id
+        else "/api/v1/requirements"
+    )
+    try:
+        created = await api_post(path, payload)
+    except HTTPException as e:
+        return JSONResponse({"error": str(e.detail)}, status_code=e.status_code)
+
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(f"/requirements/{created['id']}", status_code=303)
+
+
+@router.post("/requirements/{req_id}/patch")
+async def requirement_patch_from_ui(
+    req_id: str,
+    request: Request,
+    status: Optional[str] = Form(None),
+    priority: Optional[str] = Form(None),
+    assignee: Optional[str] = Form(None),
+    description: Optional[str] = Form(None),
+):
+    """Web UI 状态推进表单(代理 PATCH)"""
+    payload = {}
+    if status:
+        payload["status"] = status
+    if priority:
+        payload["priority"] = priority
+    if assignee:
+        payload["assignee"] = assignee
+    if description:
+        payload["description"] = description
+
+    try:
+        updated = await api_patch(f"/api/v1/requirements/{req_id}", payload)
+    except HTTPException as e:
+        return JSONResponse({"error": str(e.detail)}, status_code=e.status_code)
+
+    return templates.TemplateResponse(
+        request,
+        "requirements/_card.html",
+        {"req": updated},
+    )

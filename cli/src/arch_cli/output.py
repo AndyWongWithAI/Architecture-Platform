@@ -95,6 +95,34 @@ def print_feedbacks(feedbacks: list[dict], console: Console) -> None:
     console.print(t)
 
 
+def print_requirements(requirements: list[dict], console: Console) -> None:
+    """打印需求列表(对齐 print_feedbacks 风格)"""
+    if not requirements:
+        console.print("[yellow](无需求)[/yellow]")
+        return
+    t = Table(title="需求", show_header=True, header_style="bold magenta")
+    t.add_column("id", style="dim", no_wrap=True)
+    t.add_column("priority")
+    t.add_column("type")
+    t.add_column("status")
+    t.add_column("assignee")
+    t.add_column("title")
+
+    pri_color = {"P0": "red", "P1": "orange3", "P2": "yellow", "P3": "dim"}
+    for r in requirements:
+        pri = r.get("priority", "")
+        pri_styled = f"[{pri_color.get(pri, 'white')}]{pri}[/{pri_color.get(pri, 'white')}]"
+        t.add_row(
+            (r.get("id") or "")[:8],
+            pri_styled,
+            r.get("type", ""),
+            r.get("status", ""),
+            r.get("assignee") or "-",
+            (r.get("title") or "")[:50],
+        )
+    console.print(t)
+
+
 def print_tree(node: dict, console: Console, indent: int = 0) -> None:
     """递归打印依赖树"""
     comp = node.get("component", {})
