@@ -88,7 +88,7 @@ jobs:
 
             if [ -n "${{ inputs.healthcheck_url }}" ]; then
               echo "[deploy] health check: ${{ inputs.healthcheck_url }}"
-              curl -sf ${{ inputs.healthcheck_url }} || { echo "HEALTHCHECK FAILED"; exit 1; }
+              curl -sf "${{ inputs.healthcheck_url }}" || { echo "HEALTHCHECK FAILED"; exit 1; }
             else
               echo "[deploy] 跳过健康检查(无 healthcheck_url)"
             fi
