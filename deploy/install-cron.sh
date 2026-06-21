@@ -2,10 +2,13 @@
 # install-cron.sh — 在 #1 上注册架构平台备份 cron
 # 用法:sudo bash /opt/services/arch-platform/deploy/install-cron.sh
 #
-# 注册两条 cron(避开业务高峰):
-#   03:00 本地 SQLite 备份
-#   04:00 异地 rsync 到 #2(单独 flag 触发)
-#   每月 1 日 04:30 月度归档
+# 注册 cron:
+#   每 4 小时(00/04/08/12/16/20):本地 + 异地合并备份
+#                                  本地 SQLite 备份 + rsync → #2 81.71.132.24
+#   每月 1 日 04:30:月度归档
+#
+# 2026-06-21 修订:从原本地每日 03:00 + 异地每日 04:00 双 cron,
+#                  合并为每 4 小时一次本地+异地(数据更安全,频率更高)。
 
 set -e
 
@@ -19,8 +22,8 @@ fi
 
 chmod +x "$BACKUP_SCRIPT"
 
-CRON_LINE_LOCAL="0 3 * * * $BACKUP_SCRIPT"
-CRON_LINE_REMOTE="0 4 * * * REMOTE_BACKUP=1 $BACKUP_SCRIPT"
+# 每 4 小时:本地 + 异地(REMOTE_BACKUP=1 同时触发)
+CRON_LINE_REMOTE="0 */4 * * * REMOTE_BACKUP=1 $BACKUP_SCRIPT"
 CRON_LINE_MONTHLY="30 4 1 * * MONTHLY_ARCHIVE=1 $BACKUP_SCRIPT"
 
 # 读取现有 cron(若有)
@@ -36,7 +39,6 @@ fi
 # 注册新 cron(保留其他 cron,追加备份相关)
 echo "$EXISTING" > /tmp/cron-backup
 {
-    echo "$CRON_LINE_LOCAL"
     echo "$CRON_LINE_REMOTE"
     echo "$CRON_LINE_MONTHLY"
 } >> /tmp/cron-backup

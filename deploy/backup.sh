@@ -1,9 +1,11 @@
 #!/bin/bash
 # backup.sh — 架构平台数据备份脚本
 # 用法:sudo bash /opt/services/arch-platform/deploy/backup.sh
-# 部署后注册 cron:
-#   03:00 本地备份(.backup 命令 → /opt/services/arch-platform/backups/)
-#   04:00 异地备份(rsync → #2 81.71.132.24)
+#       REMOTE_BACKUP=1 sudo bash ...     # 同时异地备份到 #2
+#       MONTHLY_ARCHIVE=1 sudo bash ...   # 月度归档
+# 部署后注册 cron(详见 install-cron.sh):
+#   每 4 小时(00/04/08/12/16/20):本地 + 异地合并备份
+#   每月 1 日 04:30:月度归档
 #
 # 备份策略:
 #   - 全量备份保留 30 天(每日一个文件,命名:arch-YYYYMMDD.db)
