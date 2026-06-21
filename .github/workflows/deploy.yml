@@ -152,3 +152,4 @@ jobs:
 
           echo ""
           echo "[register] 部署已登记: $COMPONENT → $HOST"
+
