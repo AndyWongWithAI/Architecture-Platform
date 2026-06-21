@@ -34,12 +34,13 @@ jobs:
       - name: Read secrets
         id: read
         run: |
+          DELIM="EOF_$(date +%s)_$$"
           {
             echo "ssh_user=$SSH_USER"
             echo "arch_api_key=$ARCH_API_KEY"
-            echo "ssh_key<<EOF_$RANDOM"
+            echo "ssh_key<<${DELIM}"
             echo "$SSH_KEY"
-            echo "EOF_$RANDOM"
+            echo "${DELIM}"
           } >> "$GITHUB_OUTPUT"
         env:
           SSH_USER: ${{ secrets.SSH_USER_SELF }}
