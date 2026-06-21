@@ -113,6 +113,14 @@ class VersionCreate(BaseModel):
     compatibility_window: Optional[str] = None
 
 
+class VersionUpdate(BaseModel):
+    """版本 PATCH 字段(2026-06-21 新增)"""
+    design_doc: Optional[str] = None
+    changelog: Optional[str] = None
+    compatibility_window: Optional[str] = None
+    deprecates: Optional[List[DeprecateEntry]] = None
+
+
 class VersionOut(VersionCreate, ORMBase):
     id: str
     component_id: str

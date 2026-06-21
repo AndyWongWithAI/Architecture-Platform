@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import Version, Deployment, Feedback
-from ..schemas import VersionOut, DeploymentCreate, DeploymentOut, FeedbackCreate, FeedbackOut
+from ..schemas import VersionOut, VersionUpdate, DeploymentCreate, DeploymentOut, FeedbackCreate, FeedbackOut
 from ..auth import require_api_key
 
 router = APIRouter()
@@ -21,6 +21,34 @@ def get_version(version_id: str, db: Session = Depends(get_db)):
     ver = db.query(Version).filter(Version.id == version_id).first()
     if not ver:
         raise HTTPException(404, "version not found")
+    return ver
+
+
+@router.patch(
+    "/{version_id}",
+    response_model=VersionOut,
+    dependencies=[Depends(require_api_key)],
+)
+def update_version(
+    version_id: str,
+    payload: VersionUpdate,
+    db: Session = Depends(get_db),
+):
+    """版本 PATCH(2026-06-21 新增):补 design_doc / changelog / compatibility_window 等。
+
+    注意:version 号、semver_intent 等"身份字段"不可改(避免语义混乱)。
+    """
+    ver = db.query(Version).filter(Version.id == version_id).first()
+    if not ver:
+        raise HTTPException(404, "version not found")
+
+    # 只更新 payload 里显式提供的字段
+    data = payload.model_dump(exclude_unset=True)
+    for field, value in data.items():
+        setattr(ver, field, value)
+
+    db.commit()
+    db.refresh(ver)
     return ver
 
 
