@@ -1,35 +1,6 @@
-# .github/workflows/deploy-self.yml
-# 本仓库自身 push 自动部署 — 复用 .github/workflows/deploy.yml 模板
-#
-# 只在 main 分支 push 触发,且跳过文档改动(markdown/docs)。
-# secrets 在 GitHub repo settings → Secrets 配置:
-#   SSH_USER_SELF, SSH_KEY_SELF, ARCH_API_KEY_SELF
-
-name: Deploy Self
-
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - "**/*.md"
-      - "docs/**"
-      - ".claude/**"
-  workflow_dispatch:
-
 jobs:
-  deploy:
-    name: Deploy arch-platform to huawei-1
-    environment: production
+  test:
     uses: ./.github/workflows/deploy.yml
-    with:
-      host: "124.71.219.208"
-      service_name: "arch-platform"
-      deploy_path: "/opt/services/arch-platform"
-      compose_file: "docker-compose.yml"
-      healthcheck_url: "http://127.0.0.1:8088/healthz"
-      arch_component: "arch-platform-backend"
-      arch_platform_url: "https://arch.intelab.cn"
-    secrets:
-      ssh_user: ${{ secrets.SSH_USER_SELF }}
-      ssh_key: ${{ secrets.SSH_KEY_SELF }}
-      arch_api_key: ${{ secrets.ARCH_API_KEY_SELF }}
