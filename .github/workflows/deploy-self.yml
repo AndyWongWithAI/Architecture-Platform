@@ -19,6 +19,7 @@ on:
 jobs:
   deploy:
     name: Deploy arch-platform to huawei-1
+    environment: production
     uses: ./.github/workflows/deploy.yml
     with:
       host: "124.71.219.208"
