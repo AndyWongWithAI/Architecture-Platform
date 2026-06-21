@@ -1,0 +1,19 @@
+{# htmx 局部片段:单个 cycle 卡片(用于 dashboard 列表) #}
+<article>
+    <header>
+        <a href="/doubt/cycles/{{ cycle.id }}"><strong>{{ cycle.id[:8] }}</strong></a>
+        {% if cycle.verdict %}
+        <mark style="background:
+            {%- if cycle.verdict == 'pass' %} #a3e635
+            {%- elif cycle.verdict == 'fail' %} #ef4444
+            {%- else %} #fbbf24 {%- endif %};">
+            {{ cycle.verdict }}
+        </mark>
+        {% else %}
+        <mark>in progress</mark>
+        {% endif %}
+        | cycle #{{ cycle.cycle_count }}/{{ cycle.max_cycles }}
+    </header>
+    <p>{{ cycle.claim[:120] }}{% if cycle.claim|length > 120 %}…{% endif %}</p>
+    <small>{{ cycle.created_at[:19] }} · {{ cycle.findings|length }} findings · by {{ cycle.created_by }}</small>
+</article>

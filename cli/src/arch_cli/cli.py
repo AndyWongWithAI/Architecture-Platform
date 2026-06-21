@@ -32,6 +32,7 @@ from .commands.component import cli as component_cli
 from .commands.version import cli as version_cli
 from .commands.feedback import cli as feedback_cli
 from .commands.requirement import cli as requirement_cli
+from .commands.doubt import cli as doubt_cli
 from .commands.deployment import cli as deployment_cli
 from .commands.search import search_cmd, use_cmd, tree_cmd
 from .commands.config_cmd import cli as config_cli
@@ -60,6 +61,7 @@ main.add_command(component_cli)
 main.add_command(version_cli)
 main.add_command(feedback_cli)
 main.add_command(requirement_cli)
+main.add_command(doubt_cli)
 main.add_command(deployment_cli)
 main.add_command(config_cli)
 main.add_command(search_cmd)

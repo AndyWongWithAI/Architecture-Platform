@@ -453,3 +453,108 @@ async def requirement_patch_from_ui(
         "requirements/_card.html",
         {"req": updated},
     )
+
+# ===== Doubt-Driven Development UI(2026-06-21 新增)=====
+
+
+@router.get("/doubt", response_class=HTMLResponse)
+async def doubt_list(
+    request: Request,
+    verdict: Optional[str] = None,
+    component: Optional[str] = None,
+    created_by: Optional[str] = None,
+):
+    """doubt cycle 列表"""
+    params = {"limit": 100}
+    if verdict:
+        params["verdict"] = verdict
+    if component:
+        params["component_id"] = component
+    if created_by:
+        params["created_by"] = created_by
+    data = await _safe_get("/api/v1/doubt/cycles", params, default={"items": [], "total": 0})
+    return templates.TemplateResponse(
+        request,
+        "doubt/list.html",
+        {
+            "items": data.get("items", []),
+            "total": data.get("total", 0),
+            "filters": {"verdict": verdict, "component": component, "created_by": created_by},
+        },
+    )
+
+
+@router.get("/doubt/new", response_class=HTMLResponse)
+async def doubt_new_form(request: Request):
+    """新建 doubt cycle 表单(Step 1 CLAIM + Step 2 EXTRACT)"""
+    return templates.TemplateResponse(request, "doubt/new.html", {})
+
+
+@router.post("/doubt/run")
+async def doubt_create_from_ui(
+    request: Request,
+    claim: str = Form(...),
+    artifact: str = Form(...),
+    contract: str = Form(...),
+    component: str = Form(""),
+    created_by: str = Form("web-ui"),
+):
+    """Web UI → 服务器代理 → POST /api/v1/doubt/cycle"""
+    payload = {
+        "claim": claim,
+        "artifact": artifact,
+        "contract": contract,
+        "created_by": created_by,
+    }
+    if component:
+        payload["component_id"] = component
+    try:
+        created = await api_post("/api/v1/doubt/cycle", payload)
+    except HTTPException as e:
+        return JSONResponse({"error": str(e.detail)}, status_code=e.status_code)
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(f"/doubt/cycles/{created['id']}", status_code=303)
+
+
+@router.get("/doubt/cycles/{cycle_id}", response_class=HTMLResponse)
+async def doubt_detail(request: Request, cycle_id: str):
+    """doubt cycle 详情页(含 findings + 加 finding 表单 + STOP)"""
+    cycle = await _safe_get(f"/api/v1/doubt/cycles/{cycle_id}")
+    if not cycle:
+        raise HTTPException(status_code=404, detail=f"doubt cycle {cycle_id} 不存在")
+    return templates.TemplateResponse(request, "doubt/result.html", {"cycle": cycle})
+
+
+@router.post("/doubt/cycles/{cycle_id}/finding-from-ui")
+async def doubt_finding_from_ui(
+    request: Request,
+    cycle_id: str,
+    category: str = Form(...),
+    severity: str = Form("medium"),
+    description: str = Form(...),
+):
+    """Web UI 加 finding(RECONCILE 步骤)"""
+    try:
+        await api_post(
+            f"/api/v1/doubt/cycles/{cycle_id}/findings",
+            {"category": category, "severity": severity, "description": description},
+        )
+    except HTTPException as e:
+        return JSONResponse({"error": str(e.detail)}, status_code=e.status_code)
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(f"/doubt/cycles/{cycle_id}", status_code=303)
+
+
+@router.post("/doubt/cycles/{cycle_id}/stop-from-ui")
+async def doubt_stop_from_ui(
+    request: Request,
+    cycle_id: str,
+    reason: str = Form(...),
+):
+    """Web UI STOP cycle"""
+    try:
+        await api_post(f"/api/v1/doubt/cycles/{cycle_id}/stop", {"reason": reason})
+    except HTTPException as e:
+        return JSONResponse({"error": str(e.detail)}, status_code=e.status_code)
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(f"/doubt/cycles/{cycle_id}", status_code=303)

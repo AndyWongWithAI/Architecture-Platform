@@ -53,7 +53,7 @@ async def _list_tools():
 
 @pytest.mark.asyncio
 async def test_list_tools():
-    """MCP Server 应暴露 16 个 tools(12 原 + 4 requirement Phase 1.2)"""
+    """MCP Server 应暴露 20 个 tools(12 原 + 4 requirement + 4 doubt)"""
     names = sorted(await _list_tools())
     print(f"\n  注册的 tools: {names}")
 
@@ -68,10 +68,13 @@ async def test_list_tools():
         # Phase 1.2 新增 4
         "create_requirement", "get_requirement",
         "list_requirements", "update_requirement",
+        # Phase 0 新增 4(2026-06-21 doubt-driven-development)
+        "run_doubt_cycle", "get_doubt_cycle",
+        "add_doubt_finding", "stop_doubt_cycle",
     ]
     for t in expected:
         assert t in names, f"missing tool: {t}"
-    assert len(names) == 16, f"expected 16 tools, got {len(names)}: {names}"
+    assert len(names) == 20, f"expected 20 tools, got {len(names)}: {names}"
 
 
 @pytest.mark.asyncio
@@ -240,3 +243,114 @@ async def test_update_requirement_status():
     assert data["assignee"] == "andy"
     assert data["decided_at"] is not None
     print(f"  → MCP update_requirement: status=triaged, decided_at 自动设置 ✓")
+
+
+# ===== Phase 0 Doubt-Driven Development MCP(2026-06-21)====
+# 4 个测试:run / get / add finding / stop 端到端
+
+import httpx as _httpx
+_base = os.environ.get("ARCH_MCP_TEST_URL", "https://arch.intelab.cn")
+try:
+    _probe = _httpx.get(f"{_base}/api/v1/components", timeout=3)
+    _DOUBT_REACHABLE = _probe.status_code == 200
+except Exception:
+    _DOUBT_REACHABLE = False
+
+
+@pytest.mark.asyncio
+async def test_run_doubt_cycle():
+    """run_doubt_cycle 创建 cycle,返回完整 dict"""
+    if not _DOUBT_REACHABLE:
+        pytest.skip("doubt endpoint 不可达,跳过")
+    data = await _call_tool("run_doubt_cycle", {
+        "claim": "MCP 测试创建 doubt cycle-不应保留-test-only-link",
+        "artifact": "shutil.rmtree(path)",
+        "contract": "deploy 必须保留 data/ backups/ .env 至少 10 字符",
+        "component": "arch-platform-backend",
+        "created_by": "mcp-test",
+    })
+    assert data.get("claim", "").startswith("MCP 测试")
+    assert data["verdict"] is None
+    assert data["cycle_count"] == 1
+    assert data["max_cycles"] == 3
+    assert data["stopped_at"] is None
+    print(f"  → MCP run_doubt_cycle: {data['id'][:8]} cycle_count={data['cycle_count']}")
+
+
+@pytest.mark.asyncio
+async def test_get_doubt_cycle():
+    """get_doubt_cycle 含 findings 列表"""
+    if not _DOUBT_REACHABLE:
+        pytest.skip("doubt endpoint 不可达,跳过")
+    # 先建 cycle
+    created = await _call_tool("run_doubt_cycle", {
+        "claim": "MCP 测试 get_doubt_cycle-不应保留-test-only-link",
+        "artifact": "code",
+        "contract": "expected behavior per spec",
+        "created_by": "mcp-test",
+    })
+    cycle_id = created["id"]
+    # 加一个 finding
+    await _call_tool("add_doubt_finding", {
+        "cycle_id": cycle_id,
+        "category": "actionable",
+        "severity": "medium",
+        "description": "MCP 测试 finding 描述至少 10 字符以上",
+    })
+    # get 应该能看到
+    data = await _call_tool("get_doubt_cycle", {"cycle_id": cycle_id})
+    assert data["id"] == cycle_id
+    assert len(data["findings"]) >= 1
+    assert data["findings"][0]["category"] == "actionable"
+    print(f"  → MCP get_doubt_cycle: {cycle_id[:8]} 含 {len(data['findings'])} finding(s) ✓")
+
+
+@pytest.mark.asyncio
+async def test_add_doubt_finding():
+    """add_doubt_finding 4 个 category 都可分类"""
+    if not _DOUBT_REACHABLE:
+        pytest.skip("doubt endpoint 不可达,跳过")
+    created = await _call_tool("run_doubt_cycle", {
+        "claim": "MCP 测试 add_doubt_finding-不应保留-test-only-link",
+        "artifact": "code",
+        "contract": "expected behavior per spec",
+        "created_by": "mcp-test",
+    })
+    cycle_id = created["id"]
+    cats = ["actionable", "trade_off", "noise", "contract_misread"]
+    for cat in cats:
+        data = await _call_tool("add_doubt_finding", {
+            "cycle_id": cycle_id,
+            "category": cat,
+            "severity": "low",
+            "description": f"MCP 4 类分类端到端测试 - {cat} 至少 10 字符",
+        })
+        assert data["category"] == cat
+        assert data["severity"] == "low"
+    # 验证 4 个都入库
+    data = await _call_tool("get_doubt_cycle", {"cycle_id": cycle_id})
+    assert len(data["findings"]) == 4
+    print(f"  → MCP add_doubt_finding: 4 categories all classified ✓")
+
+
+@pytest.mark.asyncio
+async def test_stop_doubt_cycle():
+    """stop_doubt_cycle 写 stopped_at + stopped_reason=user_stop: ..."""
+    if not _DOUBT_REACHABLE:
+        pytest.skip("doubt endpoint 不可达,跳过")
+    created = await _call_tool("run_doubt_cycle", {
+        "claim": "MCP 测试 stop_doubt_cycle-不应保留-test-only-link",
+        "artifact": "code",
+        "contract": "expected behavior per spec",
+        "created_by": "mcp-test",
+    })
+    cycle_id = created["id"]
+    data = await _call_tool("stop_doubt_cycle", {
+        "cycle_id": cycle_id,
+        "reason": "MCP test: evidence conclusive ship the fix",
+    })
+    assert data["id"] == cycle_id
+    assert data["stopped_at"] is not None
+    assert "user_stop" in data["stopped_reason"]
+    assert "MCP test" in data["stopped_reason"]
+    print(f"  → MCP stop_doubt_cycle: {cycle_id[:8]} stopped ✓")

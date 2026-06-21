@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Doubt Cycles{% endblock %}
+{% block content %}
+<article>
+    <header>
+        <h1>🔍 Doubt Cycles</h1>
+        <p>非平凡决策的对抗式审查记录。<a href="/doubt/new">+ 新建 cycle</a></p>
+    </header>
+    <p><small>共 {{ total }} 个 cycle</small></p>
+</article>
+
+{% if items %}
+{% for cycle in items %}
+{% include "doubt/_cycle.html" %}
+{% endfor %}
+{% else %}
+<article><p><em>暂无 doubt cycle。点上方"+ 新建 cycle"开始第一个。</em></p></article>
+{% endif %}
+{% endblock %}

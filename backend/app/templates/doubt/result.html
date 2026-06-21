@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}Doubt Cycle {{ cycle.id[:8] }}{% endblock %}
+{% block content %}
+<article>
+    <header>
+        <h1>🔍 Doubt Cycle: {{ cycle.id[:8] }}</h1>
+        <p>
+            <strong>CLAIM:</strong> {{ cycle.claim }}
+            {% if cycle.verdict %}
+            | <strong>Verdict:</strong>
+                {% if cycle.verdict == 'pass' %}<mark style="background:#a3e635">PASS</mark>
+                {% elif cycle.verdict == 'fail' %}<mark style="background:#ef4444">FAIL</mark>
+                {% else %}<mark>{{ cycle.verdict }}</mark>{% endif %}
+            {% endif %}
+            {% if cycle.score is not none %} | Score: <strong>{{ cycle.score }}</strong>{% endif %}
+            | Cycle #{{ cycle.cycle_count }}/{{ cycle.max_cycles }}
+            {% if cycle.stopped_at %} | ⏹ Stopped at {{ cycle.stopped_at[:19] }}{% endif %}
+        </p>
+    </header>
+
+    <details open>
+        <summary><strong>ARTIFACT</strong>(证据)</summary>
+        <pre><code>{{ cycle.artifact }}</code></pre>
+    </details>
+
+    <details open>
+        <summary><strong>CONTRACT</strong>(期望)</summary>
+        <pre>{{ cycle.contract }}</pre>
+    </details>
+
+    {% if cycle.next_step %}
+    <blockquote>
+        <strong>Next Step:</strong> {{ cycle.next_step }}
+    </blockquote>
+    {% endif %}
+
+    {% if cycle.stopped_reason %}
+    <p><small>⏹ <strong>Stopped Reason:</strong> {{ cycle.stopped_reason }}</small></p>
+    {% endif %}
+</article>
+
+<article>
+    <header><h2>📋 Findings ({{ cycle.findings|length }})</h2></header>
+    {% if cycle.findings %}
+    {% set severity_order = {'critical': 0, 'high': 1, 'medium': 2, 'low': 3} %}
+    {% for f in cycle.findings|sort(attribute='created_at') %}
+    <article style="border-left: 3px solid
+        {%- if f.severity == 'critical' %} #ef4444
+        {%- elif f.severity == 'high' %} #f59e0b
+        {%- elif f.severity == 'medium' %} #3b82f6
+        {%- else %} #94a3b8 {%- endif %};">
+        <header>
+            <strong>{{ f.category }}</strong>
+            <mark style="background:
+                {%- if f.severity == 'critical' %} #fee2e2
+                {%- elif f.severity == 'high' %} #fef3c7
+                {%- elif f.severity == 'medium' %} #dbeafe
+                {%- else %} #f3f4f6 {%- endif %};">
+                {{ f.severity }}
+            </mark>
+            <small>{{ f.created_at[:19] }}</small>
+        </header>
+        <p>{{ f.description }}</p>
+    </article>
+    {% endfor %}
+    {% else %}
+    <p><em>暂无 findings。下一步:召唤 reviewer 找茬,RECONCILE 分类后加到这里。</em></p>
+    {% endif %}
+</article>
+
+{% if not cycle.stopped_at %}
+<article>
+    <header><h2>➕ 添加 Finding(RECONCILE 步骤)</h2></header>
+    <form method="post" action="/doubt/cycles/{{ cycle.id }}/finding-from-ui">
+        <div class="grid">
+            <label>
+                <span>Category</span>
+                <select name="category" required>
+                    <option value="actionable">actionable(真问题,改 artifact)</option>
+                    <option value="trade_off">trade_off(真问题但修比不改贵)</option>
+                    <option value="noise">noise(reviewer 缺上下文)</option>
+                    <option value="contract_misread">contract_misread(reviewer 因 contract 不清误报)</option>
+                </select>
+            </label>
+            <label>
+                <span>Severity</span>
+                <select name="severity">
+                    <option value="low">low</option>
+                    <option value="medium" selected>medium</option>
+                    <option value="high">high</option>
+                    <option value="critical">critical</option>
+                </select>
+            </label>
+        </div>
+        <label>
+            <span>Description(10-5000 字符)</span>
+            <textarea name="description" required minlength="10" maxlength="5000" rows="3"></textarea>
+        </label>
+        <button type="submit">添加 finding</button>
+    </form>
+
+    <hr>
+
+    <form method="post" action="/doubt/cycles/{{ cycle.id }}/stop-from-ui" style="margin-top: 1em;">
+        <label>
+            <span>STOP 步骤(用户主动 ship)</span>
+            <input type="text" name="reason" required minlength="3" maxlength="500"
+                   placeholder="例:evidence is conclusive, ship the fix">
+        </label>
+        <button type="submit" class="contrast">STOP cycle</button>
+    </form>
+</article>
+{% else %}
+<article>
+    <p><em>⏹ Cycle 已停止,不再接受新 finding。如需继续,请新建 cycle。</em></p>
+</article>
+{% endif %}
+
+<p><a href="/doubt">← 返回列表</a></p>
+{% endblock %}

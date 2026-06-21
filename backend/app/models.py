@@ -3,7 +3,7 @@ import enum
 import uuid
 from datetime import datetime
 from sqlalchemy import (
-    Column, String, Text, Boolean, DateTime, Enum, JSON, ForeignKey, Index,
+    Column, String, Text, Boolean, DateTime, Enum, JSON, ForeignKey, Index, Float, Integer,
 )
 from sqlalchemy.orm import relationship
 from .database import Base
@@ -249,3 +249,68 @@ class Requirement(Base):
         Index("idx_req_component_status", "component_id", "status"),
         Index("idx_req_assignee_status", "assignee", "status"),
     )
+
+# ===== Doubt-Driven Development(2026-06-21 新增)=====
+
+class DoubtVerdict(str, enum.Enum):
+    """doubt cycle 终态判定"""
+    pass_ = "pass"             # 证据支持决策,无需修改
+    fail = "fail"              # 证据反驳决策,需要修改
+    needs_more_evidence = "needs_more_evidence"  # 证据不足,需要更多信息
+
+
+class DoubtFindingCategory(str, enum.Enum):
+    """finding 4 类分类(对齐 doubt-driven-development RECONCILE 步骤)"""
+    contract_misread = "contract_misread"  # reviewer 因为 contract 不清误报
+    actionable = "actionable"              # 真问题 → 改 artifact
+    trade_off = "trade_off"                # 真问题但修比不改贵 → 显式记录
+    noise = "noise"                        # reviewer 缺上下文
+
+
+class DoubtFindingSeverity(str, enum.Enum):
+    low = "low"
+    medium = "medium"
+    high = "high"
+    critical = "critical"
+
+
+class DoubtCycle(Base):
+    """doubt cycle(CLAIM → EXTRACT → DOUBT → RECONCILE → STOP)"""
+    __tablename__ = "doubt_cycles"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    claim = Column(Text, nullable=False)         # 2-3 行声明
+    artifact = Column(Text, nullable=False)      # 代码/决策/断言(可贴代码或文件路径)
+    contract = Column(Text, nullable=False)      # 期望行为/验收标准
+    verdict = Column(Enum(DoubtVerdict), index=True)
+    score = Column(Float)                          # 0.0-1.0
+    next_step = Column(Text)                       # 建议下一步动作
+    cycle_count = Column(Integer, default=0, nullable=False)  # 当前 cycle 轮次
+    max_cycles = Column(Integer, default=3, nullable=False)
+    stopped_reason = Column(String)                # 用户主动 ship / 3 轮跑完 / trivial
+    component_id = Column(String, ForeignKey("components.id"), index=True)  # 可选关联
+    created_by = Column(String, nullable=False, index=True)  # 谁创建的(人 / agent)
+    created_at = Column(DateTime, default=now_utc, nullable=False)
+    stopped_at = Column(DateTime)
+
+    findings = relationship("DoubtFinding", back_populates="cycle",
+                            cascade="all, delete-orphan",
+                            order_by="DoubtFinding.created_at")
+
+    __table_args__ = (
+        Index("idx_doubt_verdict_created", "verdict", "created_at"),
+    )
+
+
+class DoubtFinding(Base):
+    """doubt cycle 内的 finding(RECONCILE 步骤分类)"""
+    __tablename__ = "doubt_findings"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    cycle_id = Column(String, ForeignKey("doubt_cycles.id"), nullable=False, index=True)
+    category = Column(Enum(DoubtFindingCategory), nullable=False, index=True)
+    severity = Column(Enum(DoubtFindingSeverity), nullable=False, default=DoubtFindingSeverity.medium, index=True)
+    description = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=now_utc, nullable=False)
+
+    cycle = relationship("DoubtCycle", back_populates="findings")

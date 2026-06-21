@@ -615,6 +615,148 @@ def test_requirement_list_filters():
     print(f"  → GET filters: priority/type/assignee ✓")
 
 
+# ===== Phase 0 Doubt-Driven Development(2026-06-21)=====
+# 6 个测试:CRUD + 状态机 + finding 分类 + cross-cycle dedup
+
+
+def test_post_doubt_cycle_success():
+    """POST /api/v1/doubt/cycle 创建 cycle,默认 cycle_count=1"""
+    _setup()
+    client = TestClient(app)
+    payload = {
+        "claim": "smoke test: deploy workflow rm -rf 会丢 SQLite 数据,需要白名单模式",
+        "artifact": "rm -rf $DEPLOY_PATH",
+        "contract": "deploy 必须保留 data/ backups/ .env",
+        "created_by": "smoke-test",
+    }
+    r = client.post("/api/v1/doubt/cycle", json=payload)
+    assert r.status_code == 201, f"got {r.status_code}: {r.text}"
+    data = r.json()
+    assert data["claim"].startswith("smoke test")
+    assert data["cycle_count"] == 1
+    assert data["max_cycles"] == 3
+    assert data["verdict"] is None
+    assert data["stopped_at"] is None
+    assert data["findings"] == []
+    print(f"  → POST doubt cycle: {data['id'][:8]} cycle_count={data['cycle_count']}")
+
+
+def test_post_doubt_cycle_too_short_claim_422():
+    """claim < 10 字符 → 422"""
+    _setup()
+    client = TestClient(app)
+    r = client.post("/api/v1/doubt/cycle", json={
+        "claim": "太短",
+        "artifact": "code snippet",
+        "contract": "should keep data directory",
+        "created_by": "smoke-test",
+    })
+    assert r.status_code == 422, f"expected 422, got {r.status_code}"
+    print(f"  → POST short claim: 422 ✓")
+
+
+def test_post_doubt_finding_all_4_categories():
+    """RECONCILE:4 个 finding category 全可分类"""
+    _setup()
+    client = TestClient(app)
+    # 先开 cycle
+    cycle_r = client.post("/api/v1/doubt/cycle", json={
+        "claim": "smoke test: 4 类 finding 分类端到端",
+        "artifact": "code to review",
+        "contract": "expected behavior per spec",
+        "created_by": "smoke-test",
+    })
+    assert cycle_r.status_code == 201
+    cycle_id = cycle_r.json()["id"]
+    # 加 4 个 finding
+    cats = ["actionable", "trade_off", "noise", "contract_misread"]
+    for cat in cats:
+        r = client.post(f"/api/v1/doubt/cycles/{cycle_id}/findings", json={
+            "category": cat,
+            "severity": "medium",
+            "description": f"finding 分类测试 - {cat} 类型样本描述文字 10 字符以上",
+        })
+        assert r.status_code == 201, f"{cat}: got {r.status_code}: {r.text}"
+        assert r.json()["category"] == cat
+    # GET 应该看到 4 个
+    r = client.get(f"/api/v1/doubt/cycles/{cycle_id}")
+    assert r.status_code == 200
+    findings = r.json()["findings"]
+    assert len(findings) == 4
+    assert sorted([f["category"] for f in findings]) == sorted(cats)
+    print(f"  → POST 4 findings: {len(findings)} categories all classified ✓")
+
+
+def test_post_finding_after_stop_409():
+    """cycle stopped 后再加 finding → 409"""
+    _setup()
+    client = TestClient(app)
+    cycle_r = client.post("/api/v1/doubt/cycle", json={
+        "claim": "smoke test: stop 后不能再加 finding",
+        "artifact": "code",
+        "contract": "expected behavior per spec",
+        "created_by": "smoke-test",
+    })
+    cycle_id = cycle_r.json()["id"]
+    # stop
+    r = client.post(f"/api/v1/doubt/cycles/{cycle_id}/stop", json={"reason": "ship it"})
+    assert r.status_code == 200
+    # 再加 finding 应 409
+    r = client.post(f"/api/v1/doubt/cycles/{cycle_id}/findings", json={
+        "category": "actionable",
+        "description": "stopped cycle 不应再接受 finding 至少 10 字符",
+    })
+    assert r.status_code == 409, f"expected 409, got {r.status_code}"
+    print(f"  → POST finding after stop: 409 ✓")
+
+
+def test_advance_verdict_pass_sets_stopped_at():
+    """verdict=pass → 同步写 stopped_at(stopped_reason='verdict=pass')"""
+    _setup()
+    client = TestClient(app)
+    cycle_r = client.post("/api/v1/doubt/cycle", json={
+        "claim": "smoke test: verdict=pass 终态验证",
+        "artifact": "code",
+        "contract": "expected behavior per spec",
+        "created_by": "smoke-test",
+    })
+    cycle_id = cycle_r.json()["id"]
+    r = client.patch(
+        f"/api/v1/doubt/cycles/{cycle_id}/advance?verdict=pass&score=0.95&next_step=ship",
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert data["verdict"] == "pass"
+    assert data["score"] == 0.95
+    assert data["next_step"] == "ship"
+    assert data["stopped_at"] is not None
+    assert data["stopped_reason"] == "verdict=pass"
+    print(f"  → PATCH verdict=pass: stopped_at + stopped_reason 自动设置 ✓")
+
+
+def test_advance_verdict_fail_sets_stopped_at():
+    """verdict=fail → 同步写 stopped_at + score 范围校验"""
+    _setup()
+    client = TestClient(app)
+    cycle_r = client.post("/api/v1/doubt/cycle", json={
+        "claim": "smoke test: verdict=fail 终态验证",
+        "artifact": "code",
+        "contract": "expected behavior per spec",
+        "created_by": "smoke-test",
+    })
+    cycle_id = cycle_r.json()["id"]
+    r = client.patch(
+        f"/api/v1/doubt/cycles/{cycle_id}/advance?verdict=fail&score=0.2&next_step=fix%20it",
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert data["verdict"] == "fail"
+    assert data["score"] == 0.2
+    assert data["stopped_at"] is not None
+    assert data["stopped_reason"] == "verdict=fail"
+    print(f"  → PATCH verdict=fail: stopped_at + stopped_reason 自动设置 ✓")
+
+
 if __name__ == "__main__":
     test_health()
     test_list_all()

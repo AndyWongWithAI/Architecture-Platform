@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}新建 doubt cycle{% endblock %}
+{% block content %}
+<article>
+    <header>
+        <h1>🔍 Doubt-Driven Development: 新建 cycle</h1>
+        <p>非平凡决策的对抗式审查入口。<a href="https://github.com/addyosmani/agent-skills" target="_blank">来源</a> · 完整 SOP 见架构平台 <code>doubt-driven-development</code> 组件 design_doc。</p>
+    </header>
+
+    <form method="post" action="/doubt/run">
+        <fieldset>
+            <legend><strong>Step 1: CLAIM</strong>(2-3 行声明,决策 + 为什么重要)</legend>
+            <label>
+                <span>声明</span>
+                <input type="text" name="claim" required minlength="10" maxlength="1000"
+                       placeholder="例:deploy workflow rm -rf \$DEPLOY_PATH 在首次部署时会丢 SQLite 数据">
+            </label>
+        </fieldset>
+
+        <fieldset>
+            <legend><strong>Step 2: EXTRACT</strong>(artifact 证据 + contract 期望)</legend>
+            <label>
+                <span>Artifact(代码 / 决策 / 断言)</span>
+                <textarea name="artifact" rows="8" required minlength="1" maxlength="50000"
+                          placeholder="粘贴代码或描述决策证据..."></textarea>
+            </label>
+
+            <label>
+                <span>Contract(期望行为 / 验收标准)</span>
+                <textarea name="contract" rows="4" required minlength="10" maxlength="5000"
+                          placeholder="例:deploy 脚本必须保留 data/ backups/ .env,只删代码目录"></textarea>
+            </label>
+        </fieldset>
+
+        <label>
+            <span>关联组件(可选)</span>
+            <input type="text" name="component" placeholder="component name,如 arch-platform-backend">
+        </label>
+
+        <label>
+            <span>创建人</span>
+            <input type="text" name="created_by" value="web-ui">
+        </label>
+
+        <button type="submit">开 cycle(Step 1 + 2)</button>
+        <a href="/doubt" role="button" class="secondary">取消</a>
+    </form>
+</article>
+
+<article>
+    <header><h2>📖 5 步法速览</h2></header>
+    <ol>
+        <li><strong>CLAIM</strong>(已填)— 2-3 行声明</li>
+        <li><strong>EXTRACT</strong>(已填)— artifact + contract 分离</li>
+        <li><strong>DOUBT</strong>— 召唤 fresh-context reviewer 找茬(不传 CLAIM 给 reviewer)</li>
+        <li><strong>RECONCILE</strong>— 分类 finding: actionable / trade_off / noise / contract_misread</li>
+        <li><strong>STOP</strong>— 满足条件:trivial finding / 3 轮 / 用户 ship</li>
+    </ol>
+    <p><small>后续步骤通过 CLI <code>arch doubt finding</code> + <code>arch doubt stop</code> 或 API 完成。</small></p>
+</article>
+{% endblock %}

@@ -335,3 +335,93 @@ def test_requirement_link_feedback():
     assert rc == 0
     assert "回链已建立" in out
     print(f"  → CLI link-feedback 链路验证通过: {req_id} ↔ {fb_id}")
+
+
+# ===== Phase 0 Doubt-Driven Development CLI(2026-06-21)====
+# 4 个测试:cycle / get / finding / stop 端到端
+
+import time as _time
+
+# 检查 doubt endpoint 是否可达(用 _REQ_LOCAL 或探测)
+import httpx as _httpx
+_base = _os.environ.get("ARCH_TEST_URL", "https://arch.intelab.cn")
+try:
+    _probe = _httpx.get(f"{_base}/api/v1/components", timeout=3)
+    _DOUBT_REACHABLE = _probe.status_code == 200
+except Exception:
+    _DOUBT_REACHABLE = False
+
+
+def _create_doubt_via_api(claim: str) -> str:
+    """通过 API 创建 doubt cycle 并返回完整 UUID(CLI 输出只有 8 字符短 id)"""
+    base = _os.environ.get("ARCH_TEST_URL", "https://arch.intelab.cn")
+    payload = {
+        "claim": claim,
+        "artifact": "# code snippet under review",
+        "contract": "expected behavior per spec - 至少 10 字符",
+        "created_by": "cli-test",
+    }
+    r = _httpx.post(f"{base}/api/v1/doubt/cycle", json=payload, timeout=5)
+    assert r.status_code == 201, f"create failed: {r.text}"
+    return r.json()["id"]
+
+
+def test_doubt_cycle_create(_local_config):
+    """arch doubt cycle --claim-text --contract-text → 201"""
+    if not _DOUBT_REACHABLE:
+        pytest.skip("doubt endpoint 不可达,跳过")
+    rc, out, _ = _run(
+        "doubt", "cycle",
+        "--claim", "CLI 测试创建 doubt cycle-不应保留-test-only-link",
+        "--artifact-text", "rm -rf $DEPLOY_PATH",
+        "--contract-text", "deploy 脚本必须保留 data/ backups/ .env",
+        "--created-by", "cli-test",
+    )
+    assert rc == 0, f"create failed: {out}"
+    assert "doubt cycle 已创建" in out
+    print(f"  → CLI doubt cycle 创建 ✓")
+
+
+def test_doubt_get(_local_config):
+    """arch doubt get <id> → 显示完整 cycle(含 findings)"""
+    if not _DOUBT_REACHABLE:
+        pytest.skip("doubt endpoint 不可达,跳过")
+    # 通过 API 建一个,再用 CLI get
+    cycle_id = _create_doubt_via_api("CLI 测试 doubt get-不应保留-test-only-link")
+    rc, out, _ = _run("doubt", "get", cycle_id)
+    assert rc == 0, f"get failed: {out}"
+    assert cycle_id[:8] in out
+    assert "CLI 测试 doubt get" in out
+    print(f"  → CLI doubt get: {cycle_id[:8]} 详情获取 ✓")
+
+
+def test_doubt_finding(_local_config):
+    """arch doubt finding <id> --category actionable --severity high --desc '...' → 201"""
+    if not _DOUBT_REACHABLE:
+        pytest.skip("doubt endpoint 不可达,跳过")
+    cycle_id = _create_doubt_via_api("CLI 测试 doubt finding-不应保留-test-only-link")
+    rc, out, _ = _run(
+        "doubt", "finding", cycle_id,
+        "--category", "actionable",
+        "--severity", "high",
+        "--desc", "deploy 脚本 shutil.rmtree 无 exclusion,SQLite 数据被删,需改白名单",
+    )
+    assert rc == 0, f"finding failed: {out}"
+    assert "finding 已添加" in out
+    assert "actionable" in out
+    print(f"  → CLI doubt finding: 添加 actionable/high ✓")
+
+
+def test_doubt_stop(_local_config):
+    """arch doubt stop <id> --reason '...' → stopped_at 写入"""
+    if not _DOUBT_REACHABLE:
+        pytest.skip("doubt endpoint 不可达,跳过")
+    cycle_id = _create_doubt_via_api("CLI 测试 doubt stop-不应保留-test-only-link")
+    rc, out, _ = _run(
+        "doubt", "stop", cycle_id,
+        "--reason", "evidence conclusive: ship the fix",
+    )
+    assert rc == 0, f"stop failed: {out}"
+    assert "cycle 已停止" in out
+    assert "user_stop" in out
+    print(f"  → CLI doubt stop: cycle {cycle_id[:8]} stopped ✓")

@@ -270,6 +270,58 @@ TOOL_DEFINITIONS = [
             "required": ["requirement_id"],
         },
     ),
+
+    # ——— Doubt-Driven Development(2026-06-21 新增)———
+    Tool(
+        name="run_doubt_cycle",
+        description="开一个 doubt cycle(Step 1 CLAIM + Step 2 EXTRACT)。非平凡决策的对抗式审查入口。verdict 默认 None,后续由 reviewer 通过 RECONCILE 加 finding,DOUBT 完成后调用 PATCH /advance 写 verdict/score。",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "claim": {"type": "string", "description": "2-3 行声明(决策 + 为什么重要)"},
+                "artifact": {"type": "string", "description": "代码/决策/断言(可贴代码)"},
+                "contract": {"type": "string", "description": "期望行为/验收标准"},
+                "component": {"type": "string", "description": "关联组件名(可选)"},
+                "created_by": {"type": "string", "default": "mcp"},
+            },
+            "required": ["claim", "artifact", "contract"],
+        },
+    ),
+    Tool(
+        name="get_doubt_cycle",
+        description="查 doubt cycle 详情(含 findings)",
+        inputSchema={
+            "type": "object",
+            "properties": {"cycle_id": {"type": "string"}},
+            "required": ["cycle_id"],
+        },
+    ),
+    Tool(
+        name="add_doubt_finding",
+        description="RECONCILE:加 finding 到 doubt cycle。category 4 选 1: actionable(真问题) / trade_off(真问题但修比不改贵) / noise(reviewer 缺上下文) / contract_misread(reviewer 因 contract 不清误报)",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "cycle_id": {"type": "string"},
+                "category": {"type": "string", "enum": ["actionable", "trade_off", "noise", "contract_misread"]},
+                "severity": {"type": "string", "enum": ["low", "medium", "high", "critical"], "default": "medium"},
+                "description": {"type": "string"},
+            },
+            "required": ["cycle_id", "category", "description"],
+        },
+    ),
+    Tool(
+        name="stop_doubt_cycle",
+        description="STOP 步骤:用户主动 ship cycle(满足停止条件之一)。reason 会被记录到 stopped_reason。",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "cycle_id": {"type": "string"},
+                "reason": {"type": "string"},
+            },
+            "required": ["cycle_id", "reason"],
+        },
+    ),
 ]
 
 
@@ -346,6 +398,17 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             result = tools.requirements.get_requirement(arguments["requirement_id"])
         elif name == "update_requirement":
             result = tools.requirements.update_requirement(**arguments)
+
+        # Doubt-Driven Development(2026-06-21 新增)
+        elif name == "run_doubt_cycle":
+            result = await tools.doubt.run_doubt_cycle(**arguments)
+        elif name == "get_doubt_cycle":
+            result = await tools.doubt.get_doubt_cycle(**arguments)
+        elif name == "add_doubt_finding":
+            result = await tools.doubt.add_doubt_finding(**arguments)
+        elif name == "stop_doubt_cycle":
+            result = await tools.doubt.stop_doubt_cycle(**arguments)
+
         else:
             return [TextContent(type="text", text=json.dumps({"error": f"unknown tool: {name}"}, ensure_ascii=False))]
 

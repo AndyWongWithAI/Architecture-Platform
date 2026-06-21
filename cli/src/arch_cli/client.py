@@ -176,6 +176,26 @@ class ArchClient:
             json={"requirement_id": req_id},
         )
 
+    # ——— Doubt-Driven Development(2026-06-21 新增)———
+    def create_doubt_cycle(self, data: dict) -> dict:
+        """开一个 doubt cycle(Step 1 CLAIM + Step 2 EXTRACT)"""
+        return self.request("POST", "/api/v1/doubt/cycle", json=data)
+
+    def get_doubt_cycle(self, cycle_id: str) -> dict:
+        return self.request("GET", f"/api/v1/doubt/cycles/{cycle_id}")
+
+    def add_doubt_finding(self, cycle_id: str, data: dict) -> dict:
+        """RECONCILE:加 finding"""
+        return self.request("POST", f"/api/v1/doubt/cycles/{cycle_id}/findings", json=data)
+
+    def advance_doubt_cycle(self, cycle_id: str, params: dict) -> dict:
+        """DOUBT:推进 cycle(写 verdict / score / next_step)"""
+        return self.request("PATCH", f"/api/v1/doubt/cycles/{cycle_id}/advance", params=params)
+
+    def stop_doubt_cycle(self, cycle_id: str, data: dict) -> dict:
+        """STOP:用户主动 ship"""
+        return self.request("POST", f"/api/v1/doubt/cycles/{cycle_id}/stop", json=data)
+
     # ——— Search / Tree / Use ———
 
     def search(self, q: str) -> dict:

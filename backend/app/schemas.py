@@ -270,3 +270,42 @@ class Error(BaseModel):
 
 
 ComponentDetail.model_rebuild()
+
+# ===== Doubt-Driven Development(2026-06-21 新增)=====
+
+class DoubtFindingCreate(BaseModel):
+    category: str = Field(..., pattern=r"^(contract_misread|actionable|trade_off|noise)$")
+    severity: str = Field(default="medium", pattern=r"^(low|medium|high|critical)$")
+    description: str = Field(..., min_length=10, max_length=5000)
+
+
+class DoubtFindingOut(DoubtFindingCreate, ORMBase):
+    id: str
+    cycle_id: str
+    created_at: datetime
+
+
+class DoubtCycleCreate(BaseModel):
+    claim: str = Field(..., min_length=10, max_length=1000)
+    artifact: str = Field(..., min_length=1, max_length=50000)
+    contract: str = Field(..., min_length=10, max_length=5000)
+    component_id: Optional[str] = None
+    created_by: str = Field(default="web-ui", max_length=200)
+
+
+class DoubtCycleStop(BaseModel):
+    """STOP 步骤 payload"""
+    reason: str = Field(..., min_length=3, max_length=500)
+
+
+class DoubtCycleOut(DoubtCycleCreate, ORMBase):
+    id: str
+    verdict: Optional[str] = None
+    score: Optional[float] = None
+    next_step: Optional[str] = None
+    cycle_count: int = 0
+    max_cycles: int = 3
+    stopped_reason: Optional[str] = None
+    created_at: datetime
+    stopped_at: Optional[datetime] = None
+    findings: List[DoubtFindingOut] = []

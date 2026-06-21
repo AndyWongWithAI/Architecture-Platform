@@ -272,3 +272,65 @@ def test_requirement_create_proxy(backend):
     assert data["title"].startswith("UI 测试")
     assert data["priority"] == "P3"
     print(f"  → UI requirement create proxy: {req_id[:8]} 重定向+创建成功")
+
+
+# ===== Phase 0 Doubt-Driven Development UI(2026-06-21)=====
+# 3 个测试:表单渲染 + 创建 proxy + 结果页
+
+
+def test_doubt_list_page_renders(backend):
+    """GET /doubt 列表页 200 + 含导航 + 含 '+ 新建 cycle' 链接"""
+    r = httpx.get(f"{backend}/doubt", timeout=5.0)
+    assert r.status_code == 200
+    assert "<html" in r.text.lower()
+    assert "Doubt Cycles" in r.text or "doubt" in r.text.lower()
+    assert "/doubt/new" in r.text
+    print(f"  → GET /doubt: 200 + nav + '新建 cycle' 链接 ✓")
+
+
+def test_doubt_new_page_renders(backend):
+    """GET /doubt/new 表单 200 + 含 CLAIM/EXTRACT 字段 + 5 步法提示"""
+    r = httpx.get(f"{backend}/doubt/new", timeout=5.0)
+    assert r.status_code == 200
+    assert "<html" in r.text.lower()
+    # form 字段
+    assert 'name="claim"' in r.text
+    assert 'name="artifact"' in r.text
+    assert 'name="contract"' in r.text
+    # POST 到 /doubt/run 代理
+    assert 'action="/doubt/run"' in r.text
+    # 5 步法速览
+    assert "CLAIM" in r.text
+    assert "EXTRACT" in r.text
+    assert "DOUBT" in r.text
+    assert "RECONCILE" in r.text
+    assert "STOP" in r.text
+    print(f"  → GET /doubt/new: 200 + form fields + 5 步法速览 ✓")
+
+
+def test_doubt_run_proxy_creates_and_redirects(backend):
+    """端到端:UI POST /doubt/run → 303 redirect 到 /doubt/cycles/{id}"""
+    r = httpx.post(
+        f"{backend}/doubt/run",
+        data={
+            "claim": "UI 测试创建 doubt cycle-不应保留-test-only-link",
+            "artifact": "def buggy(): shutil.rmtree(path)  # 无 exclusion",
+            "contract": "deploy 脚本必须保留 data/ backups/ .env 目录",
+            "component": "arch-platform-backend",
+            "created_by": "ui-test",
+        },
+        timeout=5.0,
+        follow_redirects=False,
+    )
+    assert r.status_code == 303, f"期望 303 redirect, got {r.status_code}: {r.text[:200]}"
+    location = r.headers.get("location", "")
+    assert "/doubt/cycles/" in location, f"redirect 应含 /doubt/cycles/:{location}"
+
+    # 验证 cycle 在后端
+    cycle_id = location.rsplit("/", 1)[-1]
+    chk = httpx.get(f"{backend}/doubt/cycles/{cycle_id}", timeout=5.0)
+    assert chk.status_code == 200
+    assert "<html" in chk.text.lower()
+    assert "UI 测试创建 doubt cycle" in chk.text
+    assert "shutil.rmtree" in chk.text
+    print(f"  → UI doubt run proxy: {cycle_id[:8]} redirect + result 页面渲染 ✓")
