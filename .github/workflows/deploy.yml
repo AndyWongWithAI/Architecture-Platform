@@ -75,10 +75,20 @@ jobs:
           command_timeout: 10m
           script: |
             set -e
-            cd ${{ inputs.deploy_path }}
+            REPO_URL="https://github.com/${{ github.repository }}.git"
+            cd "${{ inputs.deploy_path }}"
 
-            echo "[deploy] git pull..."
-            git pull origin main
+            # 首次部署:clone;后续:pull
+            if [ ! -d .git ]; then
+              echo "[deploy] 首次部署,git clone..."
+              cd "$(dirname "${{ inputs.deploy_path }}")"
+              rm -rf "$(basename "${{ inputs.deploy_path }}")"
+              git clone "$REPO_URL" "$(basename "${{ inputs.deploy_path }}")"
+              cd "${{ inputs.deploy_path }}"
+            else
+              echo "[deploy] git pull..."
+              git pull origin main
+            fi
 
             echo "[deploy] docker compose up --build -d..."
             docker compose -f ${{ inputs.compose_file }} up --build -d
