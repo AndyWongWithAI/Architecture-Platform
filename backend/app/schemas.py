@@ -215,6 +215,11 @@ class RequirementUpdate(BaseModel):
     # title 业务规则校验:仅 status=draft 时可改(对齐 Component.positioning 不可变原则)
     title: Optional[str] = Field(None, min_length=20, max_length=200)
     description: Optional[str] = None
+    # 2026-06-22 扩展:对齐 RequirementCreate,允许 PATCH 时补 user_story / AC / nfr
+    # (此前 create 时一次性写入,但 update 锁住会导致 draft→triaged 流程无法完善 AC)
+    user_story: Optional[str] = None
+    acceptance_criteria: Optional[List[AcceptanceCriterion]] = None
+    nfr: Optional[Dict[str, str]] = None
     priority: Optional[RequirementPriority] = None
     status: Optional[RequirementStatus] = None
     assignee: Optional[str] = None

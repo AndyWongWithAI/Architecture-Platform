@@ -131,7 +131,7 @@ def create_cmd(component_id, title, description, user_story, acceptance_criteria
     console.print(f"  {result['title'][:60]}")
 
 
-@cli.command(name="update", help="更新需求(状态 / 优先级 / 负责人 / 描述)")
+@cli.command(name="update", help="更新需求(状态 / 优先级 / 负责人 / 描述 / 用户故事 / AC / NFR)")
 @click.argument("req_id")
 @click.option("--status", type=click.Choice([
     "draft", "triaged", "scheduled", "in_progress",
@@ -141,12 +141,17 @@ def create_cmd(component_id, title, description, user_story, acceptance_criteria
 @click.option("--assignee", help="负责人")
 @click.option("--due-date", help="截止日期")
 @click.option("--description", help="详细描述")
+@click.option("--user-story", help="用户故事(2026-06-22 新增)")
+@click.option("--ac", "acceptance_criteria", help='验收标准 JSON 字符串,如 \'[{"given":"...","when":"...","then":"..."}]\' (2026-06-22 新增)')
+@click.option("--nfr", help='NFR JSON 字符串,如 \'{"performance":"p99<200ms"}\' (2026-06-22 新增)')
 @click.option("--tags", help="标签(逗号分隔)")
-def update_cmd(req_id, status, priority, assignee, due_date, description, tags):
+def update_cmd(req_id, status, priority, assignee, due_date, description,
+               user_story, acceptance_criteria, nfr, tags):
     cfg = Config.load()
     console = make_console(cfg.output_color)
     client = ArchClient(cfg)
 
+    import json
     data = {}
     if status:
         data["status"] = status
@@ -158,6 +163,12 @@ def update_cmd(req_id, status, priority, assignee, due_date, description, tags):
         data["due_date"] = due_date
     if description:
         data["description"] = description
+    if user_story:
+        data["user_story"] = user_story
+    if acceptance_criteria:
+        data["acceptance_criteria"] = json.loads(acceptance_criteria)
+    if nfr:
+        data["nfr"] = json.loads(nfr)
     if tags:
         data["tags"] = [t.strip() for t in tags.split(",")]
 
