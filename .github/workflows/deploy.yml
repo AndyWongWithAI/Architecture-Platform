@@ -1,0 +1,134 @@
+# .github/workflows/deploy.yml
+# Reusable deploy workflow — 被其他项目(或本项目 caller)调用
+#
+# 不直接响应 push(避免 secrets 缺失时 push 触发报错)。
+# 本仓库自身 push → 由 deploy-self.yml 调用本 workflow。
+#
+# 调用方式:
+#   uses: AndyWongWithAI/Architecture-Platform/.github/workflows/deploy.yml@v1
+#   with:
+#     host: <ip>
+#     ...
+#   secrets:
+#     ssh_user: ...
+#     ssh_key: ...
+
+name: Reusable Deploy
+
+on:
+  workflow_call:
+    inputs:
+      host:
+        description: "目标服务器 IP / 域名"
+        required: true
+        type: string
+      service_name:
+        description: "服务名(对应 systemd 单元 / 容器名)"
+        required: true
+        type: string
+      deploy_path:
+        description: "服务器上的部署目录"
+        required: true
+        type: string
+      compose_file:
+        description: "docker-compose 文件名"
+        type: string
+        default: "docker-compose.yml"
+      healthcheck_url:
+        description: "部署后健康检查 URL(留空 = 跳过)"
+        type: string
+        default: ""
+      arch_component:
+        description: "架构平台组件名(留空 = 不登记)"
+        type: string
+        default: ""
+      arch_platform_url:
+        description: "架构平台 API 地址"
+        type: string
+        default: "https://arch.intelab.cn"
+    secrets:
+      ssh_user:
+        description: "SSH 用户名"
+        required: true
+      ssh_key:
+        description: "SSH 私钥"
+        required: true
+      ssh_port:
+        description: "SSH 端口"
+        required: false
+      arch_api_key:
+        description: "架构平台 API Key(留空 = 开放模式)"
+        required: false
+
+jobs:
+  deploy:
+    name: Deploy to ${{ inputs.host }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ inputs.host }}
+          username: ${{ secrets.ssh_user }}
+          key: ${{ secrets.ssh_key }}
+          port: ${{ secrets.ssh_port || 22 }}
+          command_timeout: 10m
+          script: |
+            set -e
+            cd ${{ inputs.deploy_path }}
+
+            echo "[deploy] git pull..."
+            git pull origin main
+
+            echo "[deploy] docker compose up --build -d..."
+            docker compose -f ${{ inputs.compose_file }} up --build -d
+
+            echo "[deploy] 等待容器健康..."
+            sleep 15
+
+            if [ -n "${{ inputs.healthcheck_url }}" ]; then
+              echo "[deploy] health check: ${{ inputs.healthcheck_url }}"
+              curl -sf ${{ inputs.healthcheck_url }} || { echo "HEALTHCHECK FAILED"; exit 1; }
+            else
+              echo "[deploy] 跳过健康检查(无 healthcheck_url)"
+            fi
+
+            echo "[deploy] 部署完成"
+
+      - name: Register deployment to Arch Platform
+        if: inputs.arch_component != '' && inputs.arch_component != 'null'
+        env:
+          ARCH_PLATFORM_URL: ${{ inputs.arch_platform_url }}
+          ARCH_PLATFORM_API_KEY: ${{ secrets.arch_api_key || '' }}
+          COMPONENT: ${{ inputs.arch_component }}
+          HOST: ${{ inputs.host }}
+          DEPLOY_PATH: ${{ inputs.deploy_path }}
+          SERVICE: ${{ inputs.service_name }}
+        run: |
+          set -e
+          echo "[register] 查 $COMPONENT 当前 version..."
+
+          COMP_JSON=$(curl -sf \
+            ${ARCH_PLATFORM_API_KEY:+-H "X-API-Key: $ARCH_PLATFORM_API_KEY"} \
+            "$ARCH_PLATFORM_URL/api/v1/components/$COMPONENT")
+
+          VERSION_ID=$(echo "$COMP_JSON" | jq -r '.current_version_id // empty')
+
+          if [ -z "$VERSION_ID" ]; then
+            echo "[register] $COMPONENT 无 current_version_id,跳过登记"
+            exit 0
+          fi
+
+          curl -sf -X POST \
+            -H "Content-Type: application/json" \
+            ${ARCH_PLATFORM_API_KEY:+-H "X-API-Key: $ARCH_PLATFORM_API_KEY"} \
+            -d "{
+              \"env\": \"prod\",
+              \"host\": \"$HOST\",
+              \"deploy_path\": \"$DEPLOY_PATH\",
+              \"deployed_by\": \"github-actions@${{ github.repository }}\"
+            }" \
+            "$ARCH_PLATFORM_URL/api/v1/versions/$VERSION_ID/deployments"
+
+          echo ""
+          echo "[register] 部署已登记: $COMPONENT → $HOST"
