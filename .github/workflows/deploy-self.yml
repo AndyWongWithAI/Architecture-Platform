@@ -19,7 +19,6 @@ on:
 jobs:
   deploy:
     name: Deploy arch-platform to huawei-1
-    runs-on: ubuntu-latest
     environment: production
     uses: ./.github/workflows/deploy.yml
     with:
