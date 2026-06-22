@@ -7,6 +7,7 @@ from .models import (
     Layer, Category, ComponentStatus, Scope, Language,
     DistributionForm, SemverIntent, DeploymentEnv,
     FeedbackSeverity, FeedbackStatus, FeedbackDecision,
+    RuntimeDependencyRelation,
     RequirementType, RequirementPriority, RequirementStatus,
 )
 
@@ -20,6 +21,10 @@ class ORMBase(BaseModel):
 class ComposedOfEntry(BaseModel):
     component_id: str
     version_constraint: str
+    # ADR-0001 决策 4:runtime_dependency 复用 ComposedOfEntry 结构 + relation 字段
+    # composed_of 留 None(代码层 import 隐含 relation=code_import);
+    # runtime_dependency 必填 relation(orchestration/peer/deployment)
+    relation: Optional[RuntimeDependencyRelation] = None
 
 
 class ComponentBase(BaseModel):
@@ -31,6 +36,12 @@ class ComponentBase(BaseModel):
     layer: Layer
     atomic: bool = True
     composed_of: List[ComposedOfEntry] = []
+    # ADR-0001 决策 2:sub_layer 标记 orchestration/normal,不改 Layer 枚举
+    sub_layer: Optional[str] = Field(None, pattern=r"^(orchestration|normal)$")
+    # ADR-0001 决策 3:cross_cutting 白名单豁免(audit/consolidate-claude 等横切关注点)
+    cross_cutting: bool = False
+    # ADR-0001 决策 4:runtime_dependency 追踪 skill 间运行时/编排依赖,与 composed_of 正交
+    runtime_dependency: List[ComposedOfEntry] = []
     tags: List[str] = []
     repo_url: Optional[str] = None
     language: Optional[Language] = None
@@ -62,8 +73,11 @@ class ComponentUpdate(BaseModel):
     interface_contract: Optional[str] = None
     knowledge_artifact: Optional[bool] = None
     # FB-38f2024f + REQ-f8fa2992:补 composed_of 字段,使 PATCH 能与 Create/Out 对齐
-    # 原缺导致 FastAPI strict 模式拒收 unknown 字段,16872a2f 批量补全 14 个 skill 被阻塞
     composed_of: Optional[List[ComposedOfEntry]] = None
+    # ADR-0001:同步 PATCH 支持新字段(向后兼容,Optional)
+    sub_layer: Optional[str] = Field(None, pattern=r"^(orchestration|normal)$")
+    cross_cutting: Optional[bool] = None
+    runtime_dependency: Optional[List[ComposedOfEntry]] = None
 
 
 class ComponentOut(ComponentBase, ORMBase):

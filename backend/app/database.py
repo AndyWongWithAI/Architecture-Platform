@@ -61,14 +61,27 @@ def _migrate_legacy_columns(engine):
 
     迁移记录(追加历史):
       - 2026-06-21:feedbacks 表加 requirement_id 列 + 索引(追溯链)
+      - 2026-06-23:components 表加 sub_layer / cross_cutting / runtime_dependency 列(ADR-0001)
     """
     from sqlalchemy import inspect, text
     insp = inspect(engine)
-    if "feedbacks" not in insp.get_table_names():
-        return  # 新库,create_all 已建好
-    cols = {c["name"] for c in insp.get_columns("feedbacks")}
-    with engine.begin() as conn:
-        if "requirement_id" not in cols:
-            # SQLite 不支持 IF NOT EXISTS 加列;先探测再执行
-            conn.execute(text("ALTER TABLE feedbacks ADD COLUMN requirement_id VARCHAR"))
-            conn.execute(text("CREATE INDEX IF NOT EXISTS idx_feedback_requirement ON feedbacks (requirement_id)"))
+
+    # feedbacks 表迁移(2026-06-21)
+    if "feedbacks" in insp.get_table_names():
+        cols = {c["name"] for c in insp.get_columns("feedbacks")}
+        with engine.begin() as conn:
+            if "requirement_id" not in cols:
+                conn.execute(text("ALTER TABLE feedbacks ADD COLUMN requirement_id VARCHAR"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_feedback_requirement ON feedbacks (requirement_id)"))
+
+    # components 表迁移(2026-06-23, ADR-0001 REQ-1f45f486)
+    if "components" in insp.get_table_names():
+        cols = {c["name"] for c in insp.get_columns("components")}
+        with engine.begin() as conn:
+            if "sub_layer" not in cols:
+                conn.execute(text("ALTER TABLE components ADD COLUMN sub_layer VARCHAR"))
+            if "cross_cutting" not in cols:
+                conn.execute(text("ALTER TABLE components ADD COLUMN cross_cutting BOOLEAN DEFAULT 0 NOT NULL"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_component_cross_cutting ON components (cross_cutting)"))
+            if "runtime_dependency" not in cols:
+                conn.execute(text("ALTER TABLE components ADD COLUMN runtime_dependency JSON DEFAULT '[]'"))
