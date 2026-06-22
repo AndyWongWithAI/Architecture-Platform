@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from .helpers import register_filters
@@ -453,6 +453,136 @@ async def requirement_patch_from_ui(
         "requirements/_card.html",
         {"req": updated},
     )
+
+
+# ===== REQ-c7b6e4a4 需求编辑页(Phase 3,2026-06-23)=====
+# 设计:复用 RequirementUpdate schema(schemas.py:231),不在 UI 层重做校验。
+# status 字段维持 HTMX 推进表单(职责单一),title 仅 draft 可编辑(对齐 CLAUDE.md 定位稳定性)。
+import json as _json
+from datetime import datetime as _dt
+
+
+def _prepare_req_for_edit(req: dict) -> dict:
+    """为 edit.html 模板准备渲染数据(JSON 序列化 AC/nfr;CSV 序列化 tags;date 输入格式化)"""
+    req = dict(req)
+    req["acceptance_criteria_json"] = _json.dumps(
+        req.get("acceptance_criteria") or [], ensure_ascii=False, indent=2
+    )
+    req["nfr_json"] = _json.dumps(
+        req.get("nfr") or {}, ensure_ascii=False, indent=2
+    )
+    req["tags_csv"] = ", ".join(req.get("tags") or [])
+    due = req.get("due_date")
+    if due:
+        # accept ISO 8601 string or datetime
+        if isinstance(due, str):
+            req["due_date_input"] = due[:10]
+        else:
+            req["due_date_input"] = due.strftime("%Y-%m-%d")
+    else:
+        req["due_date_input"] = ""
+    return req
+
+
+@router.get("/requirements/{req_id}/edit", response_class=HTMLResponse)
+async def requirement_edit_form(request: Request, req_id: str):
+    """需求编辑表单(GET)"""
+    req = await _safe_get(f"/api/v1/requirements/{req_id}")
+    if not req:
+        raise HTTPException(status_code=404, detail=f"需求 {req_id} 不存在")
+    return templates.TemplateResponse(
+        request,
+        "requirements/edit.html",
+        {"req": _prepare_req_for_edit(req)},
+    )
+
+
+@router.post("/requirements/{req_id}/edit")
+async def requirement_edit_submit(
+    request: Request,
+    req_id: str,
+    title: Optional[str] = Form(None),
+    description: Optional[str] = Form(None),
+    user_story: Optional[str] = Form(None),
+    acceptance_criteria: Optional[str] = Form(None),
+    nfr: Optional[str] = Form(None),
+    priority: Optional[str] = Form(None),
+    assignee: Optional[str] = Form(None),
+    due_date: Optional[str] = Form(None),
+    tags: Optional[str] = Form(None),
+):
+    """需求编辑提交(POST → 代理 PATCH,303 重定向到详情页)
+
+    设计要点:
+    - 仅当字段非空时才写入 payload,避免空字符串覆盖已有值(PATCH 语义)
+    - AC/nfr 是 JSON 字符串,解析失败 → 422
+    - tags 是逗号分隔,拆分 + 去空
+    - 后端 PATCH 端点负责 title 锁定 / 状态流转校验
+    """
+    payload = {}
+
+    # title:仅在客户端发送时才传(非 draft 时前端会 disabled,name 不提交)
+    if title:
+        payload["title"] = title.strip()
+
+    if description is not None:
+        payload["description"] = description or None
+
+    if user_story is not None:
+        payload["user_story"] = user_story or None
+
+    # acceptance_criteria:JSON 数组
+    if acceptance_criteria is not None and acceptance_criteria.strip():
+        try:
+            ac_list = _json.loads(acceptance_criteria)
+            if not isinstance(ac_list, list):
+                raise ValueError("acceptance_criteria must be a JSON array")
+            payload["acceptance_criteria"] = ac_list
+        except (ValueError, _json.JSONDecodeError) as e:
+            raise HTTPException(
+                status_code=422,
+                detail=f"acceptance_criteria JSON 解析失败:{e}",
+            )
+
+    # nfr:JSON 对象
+    if nfr is not None and nfr.strip():
+        try:
+            nfr_obj = _json.loads(nfr)
+            if not isinstance(nfr_obj, dict):
+                raise ValueError("nfr must be a JSON object")
+            payload["nfr"] = nfr_obj
+        except (ValueError, _json.JSONDecodeError) as e:
+            raise HTTPException(
+                status_code=422,
+                detail=f"nfr JSON 解析失败:{e}",
+            )
+
+    if priority:
+        payload["priority"] = priority
+
+    if assignee is not None:
+        payload["assignee"] = assignee or None
+
+    if due_date:
+        payload["due_date"] = f"{due_date}T00:00:00"
+
+    if tags is not None:
+        payload["tags"] = [t.strip() for t in tags.split(",") if t.strip()]
+
+    if not payload:
+        # 没改任何字段,直接回到详情页
+        return RedirectResponse(f"/requirements/{req_id}", status_code=303)
+
+    try:
+        await api_patch(f"/api/v1/requirements/{req_id}", payload)
+    except HTTPException as e:
+        # 校验失败:回显到表单(简化版:返回 JSON 错误,前端可扩展)
+        return JSONResponse(
+            {"error": str(e.detail), "payload_sent": payload},
+            status_code=e.status_code,
+        )
+
+    return RedirectResponse(f"/requirements/{req_id}", status_code=303)
 
 # ===== Doubt-Driven Development UI(2026-06-21 新增)=====
 

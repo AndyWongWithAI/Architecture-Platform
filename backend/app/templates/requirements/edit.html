@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}编辑需求 · {{ req.title }}{% endblock %}
+{% block content %}
+<article>
+    <header>
+        <h1>✏️ 编辑需求</h1>
+        <p>
+            <a href="/requirements/{{ req.id }}">← 返回详情</a>
+            · <small><code>{{ req.id[:8] }}</code></small>
+        </p>
+        <p>
+            <span class="{{ req.priority | req_priority_color }}"><strong>{{ req.priority }}</strong></span>
+            · {{ req.type | req_type_zh }}
+            · {{ req.status | req_status_zh }}
+            {% if req.status != 'draft' %}
+            <br><small>⚠️ 当前状态 <code>{{ req.status }}</code>,title 字段已锁定(仅 draft 可改 title,对齐 CLAUDE.md 定位稳定性)</small>
+            {% endif %}
+        </p>
+    </header>
+
+    <form method="post" action="/requirements/{{ req.id }}/edit">
+        <label>
+            <span>标题(20-200 字符){% if req.status != 'draft' %} · 锁定{% endif %}</span>
+            <input type="text" name="title"
+                   value="{{ req.title }}"
+                   required minlength="20" maxlength="200"
+                   {% if req.status != 'draft' %}readonly disabled{% endif %}>
+            {% if req.status != 'draft' %}
+            <small>title 仅 draft 状态可编辑。如需修改,请先回退到 draft。</small>
+            {% endif %}
+        </label>
+
+        <label>
+            <span>描述(背景/上下文)</span>
+            <textarea name="description" rows="4"
+                      placeholder="背景/上下文/触发原因">{{ req.description or '' }}</textarea>
+        </label>
+
+        <label>
+            <span>用户故事</span>
+            <textarea name="user_story" rows="2"
+                      placeholder="As a [角色], I want [能力], so that [价值]">{{ req.user_story or '' }}</textarea>
+        </label>
+
+        <label>
+            <span>验收标准(JSON,数组,每项 given/when/then)</span>
+            <textarea name="acceptance_criteria" rows="6"
+                      placeholder='[{"given":"...","when":"...","then":"..."}]'>{{ req.acceptance_criteria_json or '[]' }}</textarea>
+            <small>支持 JSON 数组格式。空数组表示无 AC。</small>
+        </label>
+
+        <label>
+            <span>非功能需求(JSON 对象,key/value 字符串)</span>
+            <textarea name="nfr" rows="3"
+                      placeholder='{"performance": "< 100ms p99", "security": "RBAC required"}'>{{ req.nfr_json or '{}' }}</textarea>
+        </label>
+
+        <div class="grid">
+            <label>
+                <span>优先级</span>
+                <select name="priority">
+                    {% for p in ['P0', 'P1', 'P2', 'P3'] %}
+                    <option value="{{ p }}" {% if req.priority == p %}selected{% endif %}>{{ p }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>
+                <span>负责人</span>
+                <input type="text" name="assignee"
+                       value="{{ req.assignee or '' }}" placeholder="@用户名">
+            </label>
+        </div>
+
+        <label>
+            <span>截止日期</span>
+            <input type="date" name="due_date"
+                   value="{{ req.due_date_input or '' }}">
+        </label>
+
+        <label>
+            <span>标签(逗号分隔)</span>
+            <input type="text" name="tags"
+                   value="{{ req.tags_csv or '' }}" placeholder="redis, ha, ops">
+        </label>
+
+        <button type="submit">保存修改</button>
+        <a href="/requirements/{{ req.id }}" role="button" class="secondary">取消</a>
+    </form>
+</article>
+{% endblock %}
