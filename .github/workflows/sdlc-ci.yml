@@ -227,9 +227,13 @@ jobs:
             --compatibility-window "rolling"
 
   # Step 6: 写 ci manifest + 上传为 artifact（runner 不污染本地 sdlc-state，由本地 sdlc-sync-action 拉取）
+  # 关键设计:write-manifest 只依赖核心 ci (lint + test),不依赖 docker-build/scan/register —
+  #   Architecture-Platform 是 Python 后端,docker build 是 optional,GH runner 标准无 docker daemon。
+  #   实例化原则:template 通用价值保留,实例化按需裁剪。
+  #   这正是 hook 闭环的关键:lint + test 通过 → manifest 写 → hook 推 status。
   write-manifest:
     runs-on: ubuntu-latest
-    needs: [lint, test, docker-build, scan, register]
+    needs: [lint, test]
     if: inputs.REQUIREMENT_ID != ''
     steps:
       - name: Write CI manifest to runner temp
