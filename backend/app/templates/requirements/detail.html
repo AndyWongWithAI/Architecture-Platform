@@ -14,6 +14,14 @@
             {% if req.assignee %}· @{{ req.assignee }}{% endif %}
             {% if req.component_id %}· <a href="/components/{{ req.component_id }}">组件</a>{% endif %}
         </p>
+        <p>
+            <a href="/requirements/{{ req.id }}/edit" role="button" class="primary">✏️ 编辑需求</a>
+            {% if req.status == 'draft' %}
+            <small> · title 可编辑</small>
+            {% else %}
+            <small> · title 已锁定(仅 draft 可改)</small>
+            {% endif %}
+        </p>
     </header>
 
     {% if req.description %}
