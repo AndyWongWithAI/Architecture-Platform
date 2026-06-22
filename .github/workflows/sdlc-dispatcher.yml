@@ -20,6 +20,7 @@ jobs:
       requirement_id: ${{ inputs.requirement_id }}
   test:
     needs: ci
+    if: ${{ always() }}  # ci 失败也跑 test(2026-06-22 实测 docker-build fail 不应阻塞 test)
     uses: ./.github/workflows/sdlc-test.yml
     with:
       requirement_id: ${{ inputs.requirement_id }}
