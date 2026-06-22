@@ -1,0 +1,25 @@
+# SDLC Dispatcher — 手动触发入口,workflow_call 模式调用 sdlc-ci + sdlc-test
+# 解决 workflow_dispatch 直触发 sdlc-ci/test 时 API 不接受 hashFiles/matrix 的问题
+#
+# 用法: gh workflow run sdlc-dispatcher.yml -f requirement_id=<UUID>
+
+name: SDLC Dispatcher
+
+on:
+  workflow_dispatch:
+    inputs:
+      requirement_id:
+        description: '架构平台 requirement UUID'
+        required: true
+        type: string
+
+jobs:
+  ci:
+    uses: ./.github/workflows/sdlc-ci.yml
+    with:
+      requirement_id: ${{ inputs.requirement_id }}
+  test:
+    needs: ci
+    uses: ./.github/workflows/sdlc-test.yml
+    with:
+      requirement_id: ${{ inputs.requirement_id }}
