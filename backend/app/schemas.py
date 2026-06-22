@@ -61,6 +61,9 @@ class ComponentUpdate(BaseModel):
     distribution_form: Optional[DistributionForm] = None
     interface_contract: Optional[str] = None
     knowledge_artifact: Optional[bool] = None
+    # FB-38f2024f + REQ-f8fa2992:补 composed_of 字段,使 PATCH 能与 Create/Out 对齐
+    # 原缺导致 FastAPI strict 模式拒收 unknown 字段,16872a2f 批量补全 14 个 skill 被阻塞
+    composed_of: Optional[List[ComposedOfEntry]] = None
 
 
 class ComponentOut(ComponentBase, ORMBase):
