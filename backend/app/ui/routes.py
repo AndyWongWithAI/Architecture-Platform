@@ -190,11 +190,76 @@ async def feedbacks_kanban(request: Request):
         else:
             columns["open"].append(fb)  # 兜底
 
+    # REQ-5ebc9e3b:拉组件列表(用于「新建 Open Bug」表单下拉)
+    comps_data = await _safe_get("/api/v1/components", {"limit": 200}, default={"items": []})
+    components = comps_data.get("items", [])
+
     return templates.TemplateResponse(
         request,
         "feedbacks/kanban.html",
-        {"columns": columns, "total": data.get("total", 0)},
+        {
+            "columns": columns,
+            "total": data.get("total", 0),
+            "components": components,
+        },
     )
+
+
+# ——— 5.5. 新建 Open Bug 代理(REQ-5ebc9e3b 2026-06-23)———
+
+@router.post("/feedbacks/create")
+async def feedback_create_from_ui(
+    request: Request,
+    component_id: str = Form(...),
+    bug_summary: str = Form(...),
+    severity: str = Form(...),
+    reporter: str = Form("web-ui"),
+    reused_in_projects: Optional[str] = Form(None),
+):
+    """Web UI → 服务器代理 → POST /api/v1/versions/{current_version_id}/feedbacks
+
+    业务规则:
+    - reporter 默认 'web-ui'(Phase 1 acceptance criteria:可改;留空 = web-ui)
+    - reused_in_projects:逗号分隔字符串 → list
+    - 自动用 component 的 current_version_id(无 version 时报 422)
+    """
+    payload = {
+        "reporter": reporter or "web-ui",
+        "bug_summary": bug_summary,
+        "severity": severity,
+    }
+    if reused_in_projects:
+        payload["reused_in_projects"] = [
+            p.strip() for p in reused_in_projects.split(",") if p.strip()
+        ]
+
+    # 1. 取 component 的 current_version_id(后端 POST /api/v1/versions/{ver_id}/feedbacks 需要 version)
+    comp = await _safe_get(f"/api/v1/components/{component_id}")
+    if not comp:
+        return JSONResponse(
+            {"error": f"组件 {component_id} 不存在"},
+            status_code=404,
+        )
+    version_id = comp.get("current_version_id")
+    if not version_id:
+        return JSONResponse(
+            {
+                "error": (
+                    f"组件 {comp.get('name')} 还没有 current_version,"
+                    f"请先在 /components/{comp.get('name')} 登记一个版本"
+                )
+            },
+            status_code=422,
+        )
+
+    # 2. 代理 POST
+    try:
+        created = await api_post(f"/api/v1/versions/{version_id}/feedbacks", payload)
+    except HTTPException as e:
+        return JSONResponse({"error": str(e.detail)}, status_code=e.status_code)
+
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(f"/feedbacks/{created['id']}", status_code=303)
 
 
 # ——— 6. PATCH 反馈代理(看板用)———

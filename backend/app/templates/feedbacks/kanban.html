@@ -8,6 +8,59 @@
     <p>{{ total }} 条反馈 · 服务器代理 API Key,无需登录即可改 status/decision</p>
 </hgroup>
 
+{# REQ-5ebc9e3b:新建 Open Bug 表单(P2 实施 2026-06-23)。 #}
+{# 设计:顶部内联表单(同页面无跳转,无 modal — 保持与项目极简风格一致)。 #}
+{# 提交 → UI 代理 /feedbacks/create → 后端 POST /api/v1/versions/{ver_id}/feedbacks。 #}
+{% if components %}
+<article>
+    <header><strong>📝 提交新 Open Bug</strong></header>
+    <form method="post" action="/feedbacks/create" id="newFeedbackForm">
+        <div class="grid">
+            <label>
+                <span>关联组件 *</span>
+                <select name="component_id" required>
+                    {% for c in components %}
+                    <option value="{{ c.id }}" {% if loop.first %}selected{% endif %}>
+                        {{ c.name }} ({{ c.title }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>
+                <span>严重程度 *</span>
+                <select name="severity" required>
+                    <option value="low">Low</option>
+                    <option value="medium" selected>Medium</option>
+                    <option value="high">High</option>
+                    <option value="critical">Critical</option>
+                </select>
+            </label>
+        </div>
+        <label>
+            <span>Bug 摘要 *(≥5 字符)</span>
+            <textarea name="bug_summary" required minlength="5" maxlength="500"
+                      rows="2" placeholder="简述 bug,如:kanban 页切换 status 偶发 500"></textarea>
+        </label>
+        <div class="grid">
+            <label>
+                <span>影响项目(逗号分隔,可选)</span>
+                <input type="text" name="reused_in_projects" placeholder="如: arch-platform, intelab.cn-website">
+            </label>
+            <label>
+                <span>报告人</span>
+                <input type="text" name="reporter" value="web-ui" placeholder="留空则 web-ui">
+            </label>
+        </div>
+        <button type="submit">提交 Open Bug</button>
+        <small class="secondary">提交后跳转至 bug 详情页;后端会自动用该组件的 current_version 关联。</small>
+    </form>
+</article>
+{% else %}
+<article>
+    <p><em>⚠️ 当前无任何组件,无法提交反馈。请先到 <a href="/components/new">新建组件</a> 页面登记至少一个组件。</em></p>
+</article>
+{% endif %}
+
 <style>
 .kanban {
     display: grid;
