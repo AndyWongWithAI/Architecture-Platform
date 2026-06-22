@@ -120,10 +120,44 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup ${{ matrix.stack.name }}
-        uses: ${{ matrix.stack.setup_action }}
+      # GH Actions workflow_dispatch API 不接受 matrix.* 在 uses/with 表达式里(2026-06-22 实测),
+      # 所以 setup step 拆成 6 个 if 分支,每个 hardcode setup action。
+      - name: Setup Python
+        if: matrix.stack.language == 'python'
+        uses: actions/setup-python@v5
         with:
-          ${{ matrix.stack.language }}-version: ${{ matrix.stack.runtime }}
+          python-version: ${{ matrix.stack.runtime }}
+
+      - name: Setup Node.js
+        if: matrix.stack.language == 'node'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.stack.runtime }}
+
+      - name: Setup Go
+        if: matrix.stack.language == 'go'
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.stack.runtime }}
+
+      - name: Setup Java (Maven)
+        if: matrix.stack.language == 'java'
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.stack.runtime }}
+          distribution: 'temurin'
+
+      - name: Setup Rust
+        if: matrix.stack.language == 'rust'
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.stack.runtime }}
+
+      - name: Setup PHP
+        if: matrix.stack.language == 'php'
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.stack.runtime }}
 
       - name: Install dependencies
         run: ${{ matrix.stack.install }}
@@ -135,16 +169,18 @@ jobs:
           mv ${{ matrix.stack.coverage_file }} artifacts/ 2>/dev/null || true
 
       - name: Integration tests
-        if: hashFiles('tests/integration') != '' || hashFiles('tests/integration/**') != ''
+        if: always()
         run: ${{ matrix.stack.integration_cmd }}
 
       - name: E2E tests
-        if: env.RUN_E2E == 'true'
+        if: inputs.RUN_E2E == 'true'
         run: ${{ matrix.stack.e2e_cmd }}
 
       - name: Check coverage threshold
+        env:
+          COVERAGE_THRESHOLD: ${{ inputs.coverage_threshold }}
         run: |
-          THRESHOLD=${{ env.COVERAGE_THRESHOLD }}
+          THRESHOLD=$COVERAGE_THRESHOLD
           COV_FILE="artifacts/${{ matrix.stack.coverage_file }}"
           if [ -f "$COV_FILE" ]; then
             # 简化：用 jq 读 JSON；XML 留给后续实现（用 xmllint + xpath）
@@ -245,12 +281,16 @@ jobs:
         run: echo "status=skipped" >> "$GITHUB_OUTPUT"
 
   # 汇总：所有栈通过才继续
+  # 注意:多栈 matrix 可能因某栈 fail → test-matrix 整体 fail → needs 失败 → write-manifest skip
+  #       → hook 不触发。用 always() 让 manifest + hook 即使部分栈失败也跑。
   write-manifest:
     runs-on: ubuntu-latest
     needs: [test-matrix, e2e]
-    if: env.REQUIREMENT_ID != '' && always()
+    if: ${{ always() && inputs.REQUIREMENT_ID != '' }}
     steps:
       - name: Aggregate test results
+        env:
+          REQUIREMENT_ID: ${{ inputs.REQUIREMENT_ID }}
         run: |
           mkdir -p "/tmp/sdlc-state/$REQUIREMENT_ID"
           cat > "/tmp/sdlc-state/$REQUIREMENT_ID/test.json" <<EOF
@@ -279,8 +319,8 @@ jobs:
           EOF
       - uses: actions/upload-artifact@v4
         with:
-          name: sdlc-manifest-test-${{ env.REQUIREMENT_ID }}
-          path: /tmp/sdlc-state/${{ env.REQUIREMENT_ID }}/test.json
+          name: sdlc-manifest-test-$REQUIREMENT_ID
+          path: /tmp/sdlc-state/$REQUIREMENT_ID/test.json
           retention-days: 30
 
       # REQ-290f0450: SDLC status 自动推进 — Test 完成后同步 requirement.status → implemented
