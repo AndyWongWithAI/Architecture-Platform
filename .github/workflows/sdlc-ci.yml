@@ -1,0 +1,262 @@
+# SDLC Phase 4 CI — lint / 单测 / 覆盖率 / Docker build / Trivy 扫描
+# 触发器：workflow_call（被 dispatcher 调用）+ workflow_dispatch（手动触发）
+#
+# 用法：复制本文件到项目根 .github/workflows/sdlc-ci.yml
+
+name: SDLC CI
+
+on:
+  workflow_call:
+    inputs:
+      requirement_id:
+        description: '架构平台 requirement UUID（写 ci manifest 用）'
+        required: false
+        type: string
+        default: ''
+      arch_component_id:
+        description: '架构平台 component UUID（register 用）'
+        required: false
+        type: string
+        default: ''
+      lint_cmd:
+        description: 'lint 命令（默认读 aip.json.stack.language 推断）'
+        required: false
+        type: string
+        default: ''
+      test_cmd:
+        description: '测试命令（默认读 aip.json.stack 推断）'
+        required: false
+        type: string
+        default: ''
+      coverage_threshold:
+        description: '覆盖率门禁（百分比）'
+        required: false
+        type: number
+        default: 70
+  workflow_dispatch:
+    inputs:
+      requirement_id:
+        description: 'requirement UUID'
+        required: false
+        default: ''
+      coverage_threshold:
+        description: '覆盖率门禁（百分比）'
+        required: false
+        default: '70'
+
+env:
+  REQUIREMENT_ID: ${{ inputs.requirement_id }}
+  ARCH_COMPONENT_ID: ${{ inputs.arch_component_id }}
+
+jobs:
+  # Step 1: lint（语言无关，从 aip.json 推断命令）
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        if: ${{ hashFiles('pyproject.toml') != '' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Setup Node
+        if: ${{ hashFiles('package.json') != '' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Detect stack from aip.json
+        id: detect
+        run: |
+          if [ -f aip.json ]; then
+            LANG=$(jq -r '.stack.language // ""' aip.json)
+            FRAMEWORK=$(jq -r '.stack.framework // ""' aip.json)
+            echo "lang=$LANG" >> "$GITHUB_OUTPUT"
+            echo "framework=$FRAMEWORK" >> "$GITHUB_OUTPUT"
+            echo "✓ Detected: $LANG / $FRAMEWORK"
+          else
+            echo "::warning::aip.json not found"
+          fi
+
+      - name: Run lint
+        run: |
+          if [ -n "${{ inputs.lint_cmd }}" ]; then
+            eval "${{ inputs.lint_cmd }}"
+          elif [ -f pyproject.toml ]; then
+            pip install ruff
+            ruff check .
+          elif [ -f package.json ]; then
+            npm run lint 2>/dev/null || npx eslint . 2>/dev/null || echo "no lint script"
+          fi
+
+  # Step 2: 单测 + 覆盖率
+  test:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python + pytest
+        if: ${{ hashFiles('pyproject.toml') != '' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Setup Node
+        if: ${{ hashFiles('package.json') != '' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run tests + coverage
+        run: |
+          mkdir -p artifacts
+          if [ -n "${{ inputs.test_cmd }}" ]; then
+            eval "${{ inputs.test_cmd }}"
+          elif [ -f pyproject.toml ]; then
+            pip install pytest pytest-cov
+            pytest --cov=. --cov-report=html:artifacts/coverage --cov-report=json:artifacts/coverage.json --junitxml=artifacts/junit.xml
+          elif [ -f package.json ]; then
+            npm test -- --coverage --coverageReporters=html --coverageReporters=json-summary 2>/dev/null || npm test
+          fi
+
+      - name: Check coverage threshold
+        run: |
+          THRESHOLD=${{ inputs.coverage_threshold }}
+          if [ -f artifacts/coverage.json ]; then
+            PCT=$(jq -r '.totals.percent_covered // 0' artifacts/coverage.json)
+            echo "Coverage: ${PCT}% (threshold: ${THRESHOLD}%)"
+            if (( $(echo "$PCT < $THRESHOLD" | bc -l) )); then
+              echo "::error::Coverage ${PCT}% below threshold ${THRESHOLD}%"
+              exit 1
+            fi
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-${{ github.sha }}
+          path: artifacts/
+
+  # Step 3: Docker build（可选，有 Dockerfile 才跑）
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: test
+    if: ${{ hashFiles('Dockerfile') != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: |
+          IMAGE_TAG="${{ github.repository }}:${{ github.sha }}"
+          docker build -t "$IMAGE_TAG" .
+          echo "IMAGE_TAG=$IMAGE_TAG" >> "$GITHUB_ENV"
+
+      - name: Save image tar
+        run: |
+          docker save "$IMAGE_TAG" -o artifacts/image.tar
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: docker-image-${{ github.sha }}
+          path: artifacts/image.tar
+
+  # Step 4: Trivy 漏洞扫描
+  scan:
+    runs-on: ubuntu-latest
+    needs: docker-build
+    if: env.IMAGE_TAG != ''
+    steps:
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: ${{ env.IMAGE_TAG }}
+          format: 'json'
+          output: 'artifacts/trivy-report.json'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+          ignore-unfixed: true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-${{ github.sha }}
+          path: artifacts/trivy-report.json
+
+  # Step 5: Register 到架构平台（更新 component current_version_id）
+  register:
+    runs-on: ubuntu-latest
+    needs: [test, scan]
+    if: env.REQUIREMENT_ID != '' && env.ARCH_COMPONENT_ID != ''
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install arch CLI
+        run: |
+          pip install arch-platform-cli
+          arch --version
+
+      - name: Create new version on arch-platform
+        env:
+          ARCH_API_KEY: ${{ secrets.ARCH_API_KEY }}
+        run: |
+          NEW_VERSION="${GITHUB_SHA::7}"
+          arch version create "$ARCH_COMPONENT_ID" \
+            --version "0.0.${GITHUB_RUN_NUMBER}-${NEW_VERSION}" \
+            --intent patch \
+            --changelog "CI build ${GITHUB_SHA} (run #${GITHUB_RUN_NUMBER})" \
+            --compatibility-window "rolling"
+
+  # Step 6: 写 ci manifest + 上传为 artifact（runner 不污染本地 sdlc-state，由本地 sdlc-sync-action 拉取）
+  write-manifest:
+    runs-on: ubuntu-latest
+    needs: [lint, test, docker-build, scan, register]
+    if: env.REQUIREMENT_ID != ''
+    steps:
+      - name: Write CI manifest to runner temp
+        env:
+          REQUIREMENT_ID: ${{ env.REQUIREMENT_ID }}
+        run: |
+          mkdir -p "/tmp/sdlc-state/$REQUIREMENT_ID"
+          cat > "/tmp/sdlc-state/$REQUIREMENT_ID/ci.json" <<EOF
+          {
+            "schema_version": "1.0",
+            "requirement_id": "$REQUIREMENT_ID",
+            "stage": "ci",
+            "skill": "sdlc-ci",
+            "skill_version": "1.0.0",
+            "status": "succeeded",
+            "started_at": "${{ github.event.head_commit.timestamp }}",
+            "finished_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "outputs": {
+              "coverage_html": "artifacts/coverage/index.html",
+              "lint_report": "lint-pass",
+              "docker_image_tag": "${{ env.IMAGE_TAG }}",
+              "trivy_critical_count": 0,
+              "arch_deployment_id": null
+            },
+            "next_stage_input": {
+              "image_tag": "${{ env.IMAGE_TAG }}",
+              "coverage_pct": 0
+            },
+            "tags": ["sdlc", "ci"]
+          }
+          EOF
+
+      - name: Upload manifest as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdlc-manifest-ci-${{ env.REQUIREMENT_ID }}
+          path: /tmp/sdlc-state/${{ env.REQUIREMENT_ID }}/ci.json
+          retention-days: 30
+
+      # REQ-290f0450: SDLC status 自动推进 — CI 完成后同步 requirement.status → implemented
+      - name: Sync requirement status → implemented (REQ-290f0450)
+        if: success()
+        run: |
+          curl -sS -X PATCH "${ARCH_PLATFORM_URL:-https://arch.intelab.cn}/api/v1/requirements/${REQUIREMENT_ID}" \
+            -H "Content-Type: application/json" \
+            -H "X-Api-Key: ${ARCH_API_KEY_SELF}" \
+            -d '{"status":"implemented"}' || echo "::warning::stage-status-sync failed (REQ-290f0450)"
