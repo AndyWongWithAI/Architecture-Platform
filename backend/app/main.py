@@ -47,11 +47,19 @@ def _seed_components_if_empty():
             logger.warning("[seed] 未找到 docs/components 目录,跳过种子导入")
             return
 
-        logger.info(f"[seed] 首次启动,从 {components_dir} 导入种子数据...")
+        # 2026-06-22 改进:冷启动注入用 warning 级别 + [SEED-COLD-START] tag + 备份验证提示
+        # 目的:让运维能直接 grep "SEED-COLD-START" 识别冷启动时刻,避免把 seed 重建误判为 backup 恢复
+        # 参考反馈:FB-d3f61888(数据丢失事件)+ 跟进 FB-6c374e21 + 需求 fd7011ae
+        # 注意:这是"功能正常路径"产生的信息,不是异常,所以用 warning(显眼)而非 error(误导)
+        logger.warning(
+            f"[SEED-COLD-START] 检测到冷启动(DB 为空),从 {components_dir} 注入种子数据。"
+            f"⚠️ 如近期发生过 rm -rf / data/ 丢失事件,请人工检查 backups/ 是否包含 pre-event 数据,"
+            f"不要把 seed 重建误判为 backup 恢复。"
+        )
         importer = MarkdownImporter(db, components_dir)
         result = importer.import_all()
-        logger.info(
-            f"[seed] 导入完成:created={result.created}, "
+        logger.warning(
+            f"[SEED-COLD-START] 种子导入完成:created={result.created}, "
             f"updated={result.updated}, errors={len(result.errors)}"
         )
         if result.errors:
