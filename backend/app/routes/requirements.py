@@ -22,7 +22,7 @@ from ..models import (
 )
 from ..schemas import (
     RequirementList, RequirementOut, RequirementCreate, RequirementUpdate,
-    FeedbackList,
+    FeedbackList, StateMachineErrorDetail,
 )
 from ..auth import require_api_key
 
@@ -48,6 +48,91 @@ TERMINAL_STATUSES = {
 }
 
 
+def _build_transition_suggestion(
+    current: RequirementStatus,
+    attempted: RequirementStatus,
+    allowed: set,
+) -> str:
+    """生成 422 错误的 suggestion 文案 — 让 subagent 知道下一步该走哪个状态
+
+    策略:
+    - 终止态 (verified/rejected/cancelled) 且 attempted 仍在 set 外 → 建议 reopen(超出 API 范围,人工)
+    - 单步可达 (attempted 在 ALLOWED_TRANSITIONS 之外的合法下一态路径上) → 给出最近中间态
+    - 多步路径 → 列出从头到尾的链路
+    """
+    cur = current.value
+    att = attempted.value
+
+    # 终止态直接拒
+    if current in TERMINAL_STATUSES:
+        return (
+            f"需求已处于终止态 '{cur}',无法流转。"
+            f"如需 reopen,请走管理员通道(API 当前不支持)。"
+        )
+
+    # allowed 里有当前尝试态的中间态 → 提示先到中间态
+    if allowed:
+        # 按状态机主推进顺序排序,优先提示主路径上的下一态
+        MAIN_PATH = [
+            RequirementStatus.draft,
+            RequirementStatus.triaged,
+            RequirementStatus.scheduled,
+            RequirementStatus.in_progress,
+            RequirementStatus.implemented,
+            RequirementStatus.verified,
+        ]
+        sorted_allowed = sorted(
+            allowed,
+            key=lambda s: MAIN_PATH.index(s) if s in MAIN_PATH else 99,
+        )
+        next_step = sorted_allowed[0]
+        if len(sorted_allowed) == 1:
+            return (
+                f"状态机不允许 '{cur}' → '{att}' 的直跳。"
+                f"请先将状态置为 '{next_step.value}',再推进到 '{att}'。"
+            )
+        else:
+            allowed_list = " / ".join(s.value for s in sorted_allowed)
+            return (
+                f"状态机不允许 '{cur}' → '{att}' 的直跳。"
+                f"允许的下一态:{allowed_list}。"
+                f"建议先置为 '{next_step.value}',再继续推进。"
+            )
+
+    # 走到这里:current 不是终止态但 allowed 为空(理论上不应发生,兜底)
+    return f"状态 '{cur}' 当前无可用下一态,无法流转。"
+
+
+def _raise_transition_error(
+    req: Requirement,
+    new_status: RequirementStatus,
+    allowed: set,
+):
+    """统一的 422 状态机错误抛出器 — FB-b6311cf6 增强版
+
+    body 包含:
+    - detail: 人类可读的总结(向后兼容旧 detail 字段)
+    - current_status / attempted_status: 当前与尝试状态
+    - allowed_transitions: 合法下一态列表(空 = terminal)
+    - state_machine_doc: SOP 链接
+    - suggestion: 具体路径建议
+    """
+    allowed_list = sorted(s.value for s in allowed)
+    suggestion = _build_transition_suggestion(req.status, new_status, allowed)
+    detail = StateMachineErrorDetail(
+        current_status=req.status.value,
+        attempted_status=new_status.value,
+        allowed_transitions=allowed_list,
+        suggestion=suggestion,
+    )
+    # FastAPI 的 HTTPException(detail=...) 会把 dict 序列化成 JSON
+    # 但这里我们用 Pydantic model,需要先 model_dump
+    raise HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail=detail.model_dump(),
+    )
+
+
 def _gen_uuid() -> str:
     return str(uuid.uuid4())
 
@@ -68,11 +153,7 @@ def _validate_transition(
     """校验状态流转 + 必填字段"""
     allowed = ALLOWED_TRANSITIONS.get(req.status, set())
     if new_status not in allowed:
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
-            f"cannot transition '{req.status.value}' → '{new_status.value}' "
-            f"(allowed: {sorted(s.value for s in allowed) or 'terminal state'})",
-        )
+        _raise_transition_error(req, new_status, allowed)
     # draft → triaged 必填 assignee
     if new_status == RequirementStatus.triaged:
         new_assignee = payload.assignee if payload.assignee is not None else req.assignee

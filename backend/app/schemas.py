@@ -276,6 +276,22 @@ class RequirementLinkFeedback(BaseModel):
     requirement_id: str
 
 
+# ===== 状态机错误响应 =====
+# FB-b6311cf6 修复方案第 2 层:422 body 增强,帮 subagent 自我修正
+# - allowed_transitions:从 ALLOWED_TRANSITIONS 表查出的合法下一态
+# - state_machine_doc:SOP 链接(Phase 1.1 Requirement 状态机参考)
+# - suggestion:针对当前 + 尝试态的明确路径建议(单步/多步/终止)
+class StateMachineErrorDetail(BaseModel):
+    """422 状态机错误的 detail schema — 嵌入 HTTPException(detail=...) 即可"""
+    current_status: str
+    attempted_status: str
+    allowed_transitions: List[str] = []
+    state_machine_doc: str = (
+        "file:///home/hq/.claude/specs/sdlc/SOP.md#phase-11-requirement-状态机参考"
+    )
+    suggestion: str
+
+
 # ===== Search =====
 class SearchResponse(BaseModel):
     components: List[ComponentOut]
