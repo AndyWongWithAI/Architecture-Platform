@@ -18,12 +18,8 @@ jobs:
     uses: ./.github/workflows/sdlc-ci.yml
     with:
       requirement_id: ${{ inputs.requirement_id }}
-  # test:
-  #   needs: ci
-  #   uses: ./.github/workflows/sdlc-test.yml
-  #   with:
-  #     requirement_id: ${{ inputs.requirement_id }}
-  # 暂时只调 ci:2026-06-22 实测 sdlc-test.yml 的 matrix 表达式在 API validate 卡(workflow_call 链),
-  # 多栈测试是 template 通用价值,Architecture-Platform 是 Python 单语言项目,
-  # 该仓库实例化时按需裁剪(CLAUDE.md 「复用原则」 — 实例化 ≠ 复制)。
-  # test 的 hook 通过 code review 验证(yaml write-manifest 末尾)。
+  test:
+    needs: ci
+    uses: ./.github/workflows/sdlc-test.yml
+    with:
+      requirement_id: ${{ inputs.requirement_id }}
