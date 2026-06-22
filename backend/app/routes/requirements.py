@@ -59,7 +59,12 @@ def _resolve_component(db: Session, identifier: str) -> Optional[Component]:
     ).first()
 
 
-def _validate_transition(req: Requirement, new_status: RequirementStatus, payload: RequirementUpdate):
+def _validate_transition(
+    req: Requirement,
+    new_status: RequirementStatus,
+    payload: RequirementUpdate,
+    db: Session,  # fix FB-98bc3a4c:db 之前未注入导致 verified transition 500
+):
     """校验状态流转 + 必填字段"""
     allowed = ALLOWED_TRANSITIONS.get(req.status, set())
     if new_status not in allowed:
@@ -210,7 +215,7 @@ def update_requirement(
     # 状态流转校验
     new_status = update_data.get("status", req.status)
     if "status" in update_data and update_data["status"] != req.status:
-        _validate_transition(req, update_data["status"], payload)
+        _validate_transition(req, update_data["status"], payload, db)  # fix FB-98bc3a4c:传 db
 
     # 应用字段
     for key, val in update_data.items():

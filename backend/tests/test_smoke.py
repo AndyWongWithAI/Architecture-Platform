@@ -508,6 +508,43 @@ def test_patch_requirement_transition_success():
     print(f"  → PATCH triaged (with assignee): 200, decided_at auto-set ✓")
 
 
+def test_patch_requirement_transition_verified_with_component_200():
+    """regression:FB-98bc3a4c — 带 component + version 的 requirement 推 verified 必须 200
+
+    Bug:_validate_transition() 引用了未注入的 db 变量,导致 component_id 非空 +
+    new_status=verified 路径 500 NameError。修复后该路径能正确执行业务规则:
+    - component 有 current_version_id → 200
+    - component 无 current_version_id → 422(不是 500)
+    """
+    _setup()
+    client = TestClient(app)
+    # 1) 先给 user-auth-jwt 建一个 version(否则 verified 会因业务规则 422,盖过 500 信号)
+    r = client.post("/api/v1/components/user-auth-jwt/versions", json={
+        "version": "0.99.0",
+        "semver_intent": "minor",
+        "changelog": "test version for FB-98bc3a4c regression",
+    })
+    assert r.status_code == 201, f"create version: got {r.status_code}: {r.text}"
+    # 2) 嵌套创建(自动绑 component)
+    r = client.post("/api/v1/components/user-auth-jwt/requirements", json={
+        "title": "测试需求-verified-with-component-200-回归测试-不应保留-test-only",
+        "type": "new_feature",
+        "priority": "P2",
+        "assignee": "andy",
+    })
+    assert r.status_code == 201, f"create nested: got {r.status_code}: {r.text}"
+    req_id = r.json()["id"]
+    # 3) 走完到 implemented
+    for s in ["triaged", "scheduled", "in_progress", "implemented"]:
+        r = client.patch(f"/api/v1/requirements/{req_id}", json={"status": s})
+        assert r.status_code == 200, f"got {r.status_code} at {s}: {r.text}"
+    # 4) 关键步骤:带 component_id + current_version_id 的 verified 必须 200(以前会 500)
+    r = client.patch(f"/api/v1/requirements/{req_id}", json={"status": "verified"})
+    assert r.status_code == 200, f"FB-98bc3a4c NOT FIXED — got {r.status_code}: {r.text}"
+    assert r.json()["status"] == "verified"
+    print(f"  → PATCH verified with component+version: 200 (FB-98bc3a4c fix verified) ✓")
+
+
 def test_patch_requirement_rejected_requires_description_422():
     """triaged → rejected 不填 description → 422"""
     _setup()  # feedback 53fe92a4:确保 DB + 组件已 seed
@@ -788,6 +825,7 @@ if __name__ == "__main__":
     test_patch_requirement_transition_triaged_requires_assignee_422()
     test_patch_requirement_transition_invalid_422()
     test_patch_requirement_transition_success()
+    test_patch_requirement_transition_verified_with_component_200()
     test_patch_requirement_rejected_requires_description_422()
     test_delete_requirement_archive()
     test_get_component_requirements_reverse()
