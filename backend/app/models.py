@@ -74,6 +74,17 @@ class FeedbackDecision(str, enum.Enum):
     keep_as_is = "keep_as_is"; reassess_form = "reassess_form"
 
 
+class RuntimeDependencyRelation(str, enum.Enum):
+    """runtime_dependency 字段的 relation 取值(ADR-0001 决策 4)
+    - orchestration: 上层编排下层(等价于跨层调用,LayeringCheck 仅校验「禁止向上」)
+    - peer: 同层协作(仅 L2 编排型亚层 + cross_cutting 白名单允许)
+    - deployment: 部署/物理依赖(L3 可直接引用 L1/L0,见 CLAUDE.md 分层原则)
+    """
+    orchestration = "orchestration"
+    peer = "peer"
+    deployment = "deployment"
+
+
 # ===== Requirement (Phase 1 需求登记) =====
 class RequirementType(str, enum.Enum):
     new_feature = "new_feature"
@@ -114,6 +125,11 @@ class Component(Base):
 
     atomic = Column(Boolean, default=True, nullable=False)
     composed_of = Column(JSON, default=list)
+
+    # ADR-0001 决策 2/3/4:sub_layer / cross_cutting / runtime_dependency 三字段
+    sub_layer = Column(String)  # orchestration / normal / None
+    cross_cutting = Column(Boolean, default=False, nullable=False, index=True)
+    runtime_dependency = Column(JSON, default=list)
 
     tags = Column(JSON, default=list)
     repo_url = Column(String)
