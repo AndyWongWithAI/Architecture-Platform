@@ -72,6 +72,7 @@
                 <option value="in_progress" {% if req.status == 'in_progress' %}selected{% endif %}>进行中</option>
                 <option value="implemented" {% if req.status == 'implemented' %}selected{% endif %}>已实现</option>
                 <option value="verified" {% if req.status == 'verified' %}selected{% endif %}>已验证</option>
+                <option value="complete" {% if req.status == 'complete' %}selected{% endif %}>已完成</option>
                 <option value="rejected" {% if req.status == 'rejected' %}selected{% endif %}>已拒绝</option>
                 <option value="cancelled" {% if req.status == 'cancelled' %}selected{% endif %}>已取消</option>
             </select>

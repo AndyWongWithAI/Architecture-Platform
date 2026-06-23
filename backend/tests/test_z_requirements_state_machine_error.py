@@ -175,8 +175,8 @@ def test_draft_to_scheduled_blocked(backend):
         _cleanup(backend, req_id)
 
 
-def test_verified_to_in_progress_terminal(backend):
-    """(c) verified → in_progress:非法,422 + allowed=[] (terminal)"""
+def test_verified_to_in_progress_blocked(backend):
+    """(c) verified → in_progress:非法,422 + allowed=['complete'] (REQ-b871169e:verified 不再是终态)"""
     req_id = _create_req(backend, "case-c")
     try:
         # 推进到 verified 需要 component 有 current_version_id — 跳过此 case 的全推进
@@ -224,14 +224,15 @@ def test_verified_to_in_progress_terminal(backend):
             r = _patch_status(backend, req_id, s)
             assert r.status_code == 200, f"推进 {s} 失败:{r.status_code} {r.text}"
 
-        # 触发非法转换:terminal → in_progress
+        # 触发非法转换:verified → in_progress
+        # REQ-b871169e:verified 现在是中间态,只能往 complete 走
         r = _patch_status(backend, req_id, "in_progress")
-        detail = _assert_state_machine_422(r, "verified", "in_progress", [])
-        # suggestion 应包含「终止态」字样
-        assert "终止态" in detail["suggestion"], (
-            f"suggestion 应说明终态:got {detail['suggestion']!r}"
+        detail = _assert_state_machine_422(r, "verified", "in_progress", ["complete"])
+        # suggestion 应提示先 complete
+        assert "complete" in detail["suggestion"], (
+            f"suggestion 应提示 complete:got {detail['suggestion']!r}"
         )
-        print(f"  → case (c) verified→in_progress: 422 + allowed=[] + 终态提示 ✓")
+        print(f"  → case (c) verified→in_progress: 422 + allowed=['complete'] + suggestion ✓")
     finally:
         _cleanup(backend, req_id)
 
@@ -311,5 +312,108 @@ def test_suggestion_mentions_next_step(backend):
             f"suggestion 应确定不含模糊词:{suggestion!r}"
         )
         print(f"  → suggestion 文案含明确 next step: {suggestion}")
+    finally:
+        _cleanup(backend, req_id)
+
+
+# ===== REQ-b871169e:complete 状态机 verified→complete 单向链 =====
+
+def _create_req_with_component(backend, suffix: str) -> str:
+    """创建 draft 测试需求 + 关联 component + version,以便推进到 verified"""
+    req_id = _create_req(backend, suffix)
+    from app.database import SessionLocal
+    from app.models import Component, Version, Requirement
+
+    db = SessionLocal()
+    try:
+        comp_id = f"test-comp-{req_id[:8]}"
+        comp = Component(
+            id=comp_id,
+            name=f"test-comp-{req_id[:8]}",
+            title="测试组件",
+            positioning="用于 complete 状态机测试的临时组件",
+            category="other",
+            scope="tool",
+            layer="L1_platform",
+            is_asset=False,
+        )
+        db.add(comp)
+        db.flush()
+        ver = Version(
+            id=f"test-ver-{req_id[:8]}",
+            component_id=comp_id,
+            version="0.0.1",
+            semver_intent="patch",
+            changelog="test",
+        )
+        db.add(ver)
+        db.flush()
+        comp.current_version_id = ver.id
+        req = db.query(Requirement).filter_by(id=req_id).first()
+        req.component_id = comp_id
+        db.commit()
+    finally:
+        db.close()
+    return req_id
+
+
+def test_verified_to_complete_succeeds(backend):
+    """REQ-b871169e (a):verified → complete 应为 200(单向链)"""
+    req_id = _create_req_with_component(backend, "complete-a")
+    try:
+        # 推进到 verified
+        for s in ["triaged", "scheduled", "in_progress", "implemented", "verified"]:
+            r = _patch_status(backend, req_id, s)
+            assert r.status_code == 200, f"推进 {s} 失败:{r.status_code} {r.text}"
+
+        # verified → complete:合法路径
+        r = _patch_status(backend, req_id, "complete")
+        assert r.status_code == 200, (
+            f"合法转换 verified→complete 应 200,got {r.status_code}:{r.text}"
+        )
+        assert r.json()["status"] == "complete"
+        print(f"  → case (a) verified→complete: 200(单向链已通) ✓")
+    finally:
+        _cleanup(backend, req_id)
+
+
+def test_implemented_to_complete_fails(backend):
+    """REQ-b871169e (b):implemented → complete 应为 422(必须先过 verified)"""
+    req_id = _create_req_with_component(backend, "complete-b")
+    try:
+        # 推进到 implemented(跳过 verified)
+        for s in ["triaged", "scheduled", "in_progress", "implemented"]:
+            r = _patch_status(backend, req_id, s)
+            assert r.status_code == 200, f"推进 {s} 失败:{r.status_code} {r.text}"
+
+        # implemented → complete:非法,必须先 verified
+        r = _patch_status(backend, req_id, "complete")
+        detail = _assert_state_machine_422(r, "implemented", "complete", ["in_progress", "verified"])
+        # suggestion 应提示先 verified
+        assert "verified" in detail["suggestion"], (
+            f"suggestion 应提示 verified:got {detail['suggestion']!r}"
+        )
+        print(f"  → case (b) implemented→complete: 422 + 必须先 verified ✓")
+    finally:
+        _cleanup(backend, req_id)
+
+
+def test_complete_is_terminal(backend):
+    """REQ-b871169e (c):complete → in_progress 应为 422(终止态不可逆)"""
+    req_id = _create_req_with_component(backend, "complete-c")
+    try:
+        # 推进到 complete
+        for s in ["triaged", "scheduled", "in_progress", "implemented", "verified", "complete"]:
+            r = _patch_status(backend, req_id, s)
+            assert r.status_code == 200, f"推进 {s} 失败:{r.status_code} {r.text}"
+
+        # complete → in_progress:非法,终止态不可逆
+        r = _patch_status(backend, req_id, "in_progress")
+        detail = _assert_state_machine_422(r, "complete", "in_progress", [])
+        # suggestion 应包含「终止态」字样
+        assert "终止态" in detail["suggestion"], (
+            f"suggestion 应说明终态:got {detail['suggestion']!r}"
+        )
+        print(f"  → case (c) complete→in_progress: 422 + 终态不可逆 ✓")
     finally:
         _cleanup(backend, req_id)

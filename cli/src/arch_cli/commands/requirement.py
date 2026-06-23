@@ -21,7 +21,7 @@ def cli():
 @cli.command(name="list", help="列出需求")
 @click.option("--status", type=click.Choice([
     "draft", "triaged", "scheduled", "in_progress",
-    "implemented", "verified", "rejected", "cancelled",
+    "implemented", "verified", "complete", "rejected", "cancelled",
 ]))
 @click.option("--priority", type=click.Choice(["P0", "P1", "P2", "P3"]))
 @click.option("--type", "req_type", type=click.Choice([
@@ -135,7 +135,7 @@ def create_cmd(component_id, title, description, user_story, acceptance_criteria
 @click.argument("req_id")
 @click.option("--status", type=click.Choice([
     "draft", "triaged", "scheduled", "in_progress",
-    "implemented", "verified", "rejected", "cancelled",
+    "implemented", "verified", "complete", "rejected", "cancelled",
 ]))
 @click.option("--priority", type=click.Choice(["P0", "P1", "P2", "P3"]))
 @click.option("--assignee", help="负责人")

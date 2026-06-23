@@ -14,7 +14,7 @@
         <div class="grid">
             <select name="status" onchange="this.form.submit()">
                 <option value="">所有状态</option>
-                {% for s in ['draft','triaged','scheduled','in_progress','implemented','verified','rejected','cancelled'] %}
+                {% for s in ['draft','triaged','scheduled','in_progress','implemented','verified','complete','rejected','cancelled'] %}
                 <option value="{{ s }}" {% if filters.status == s %}selected{% endif %}>{{ s | req_status_zh }}</option>
                 {% endfor %}
             </select>

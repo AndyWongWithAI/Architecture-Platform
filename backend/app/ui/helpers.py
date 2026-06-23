@@ -185,6 +185,7 @@ REQ_STATUS_ZH = {
     "in_progress": "进行中",
     "implemented": "已实现",
     "verified": "已验证",
+    "complete": "已完成",
     "rejected": "已拒绝",
     "cancelled": "已取消",
 }

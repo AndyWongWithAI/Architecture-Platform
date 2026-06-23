@@ -36,13 +36,15 @@ ALLOWED_TRANSITIONS = {
     RequirementStatus.scheduled: {RequirementStatus.in_progress, RequirementStatus.rejected, RequirementStatus.cancelled},
     RequirementStatus.in_progress: {RequirementStatus.implemented, RequirementStatus.cancelled},
     RequirementStatus.implemented: {RequirementStatus.verified, RequirementStatus.in_progress},
-    RequirementStatus.verified: set(),
+    RequirementStatus.verified: {RequirementStatus.complete},
+    RequirementStatus.complete: set(),
     RequirementStatus.rejected: set(),
     RequirementStatus.cancelled: set(),
 }
 
 TERMINAL_STATUSES = {
     RequirementStatus.verified,
+    RequirementStatus.complete,
     RequirementStatus.rejected,
     RequirementStatus.cancelled,
 }
@@ -63,8 +65,8 @@ def _build_transition_suggestion(
     cur = current.value
     att = attempted.value
 
-    # 终止态直接拒
-    if current in TERMINAL_STATUSES:
+    # 终止态直接拒(verified 是中间态→complete,不算终态)
+    if current in TERMINAL_STATUSES and current != RequirementStatus.verified:
         return (
             f"需求已处于终止态 '{cur}',无法流转。"
             f"如需 reopen,请走管理员通道(API 当前不支持)。"
@@ -80,6 +82,7 @@ def _build_transition_suggestion(
             RequirementStatus.in_progress,
             RequirementStatus.implemented,
             RequirementStatus.verified,
+            RequirementStatus.complete,
         ]
         sorted_allowed = sorted(
             allowed,
