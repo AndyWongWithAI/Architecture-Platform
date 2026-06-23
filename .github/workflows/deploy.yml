@@ -72,7 +72,7 @@ jobs:
           username: ${{ secrets.ssh_user }}
           key: ${{ secrets.ssh_key }}
           port: ${{ secrets.ssh_port || 22 }}
-          command_timeout: 10m
+          command_timeout: 30m
           script: |
             set -e
             REPO_URL="https://github.com/${{ github.repository }}.git"
