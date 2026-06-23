@@ -12,7 +12,7 @@ from ..schemas import (
     ComponentOut, ComponentDetail, ComponentList,
     ComponentTreeNode, ComponentUsage,
     ComponentCreate, ComponentUpdate,
-    VersionCreate, VersionOut,
+    VersionCreate, VersionOut, VersionList,
 )
 from ..auth import require_api_key
 
@@ -302,6 +302,29 @@ def update_component(
 def _gen_uuid() -> str:
     import uuid
     return str(uuid.uuid4())
+
+
+@router.get(
+    "/{component_id}/versions",
+    response_model=VersionList,
+)
+def list_component_versions(
+    component_id: str,
+    db: Session = Depends(get_db),
+):
+    """列出某组件的所有版本(FB-6f84124c:arch CLI version list 405 修复)"""
+    comp = db.query(Component).filter(
+        (Component.id == component_id) | (Component.name == component_id)
+    ).first()
+    if not comp:
+        raise HTTPException(404, "component not found")
+    items = (
+        db.query(Version)
+        .filter(Version.component_id == comp.id)
+        .order_by(Version.created_at.desc())
+        .all()
+    )
+    return VersionList(items=items, total=len(items))
 
 
 @router.post(

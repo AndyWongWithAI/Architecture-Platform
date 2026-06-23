@@ -147,6 +147,11 @@ class VersionOut(VersionCreate, ORMBase):
     created_at: datetime
 
 
+class VersionList(BaseModel):
+    items: List["VersionOut"]
+    total: int
+
+
 # ===== Deployment =====
 class DeploymentCreate(BaseModel):
     env: DeploymentEnv
