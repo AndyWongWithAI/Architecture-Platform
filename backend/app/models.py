@@ -119,6 +119,8 @@ class Component(Base):
     name = Column(String, unique=True, nullable=False, index=True)
     title = Column(String, nullable=False)
     positioning = Column(Text, nullable=False)
+    # REQ-d1deda65:删除原因存放(对齐 Requirement.description 模式)
+    description = Column(Text)
     category = Column(Enum(Category), nullable=False)
     scope = Column(Enum(Scope), nullable=False)
     layer = Column(Enum(Layer), nullable=False, index=True)
@@ -146,6 +148,9 @@ class Component(Base):
     knowledge_artifact = Column(Boolean, default=False, nullable=False)
 
     current_version_id = Column(String, ForeignKey("versions.id", use_alter=True, name="fk_component_current_version"))
+
+    # 软删除独立 bool(REQ-d1deda65,2026-06-23)— 对齐 Requirement/Literature.is_archived 隔离原则
+    is_archived = Column(Boolean, default=False, nullable=False, index=True)
 
     created_at = Column(DateTime, default=now_utc, nullable=False)
     updated_at = Column(DateTime, default=now_utc, onupdate=now_utc, nullable=False)

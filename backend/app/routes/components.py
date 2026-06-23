@@ -1,6 +1,6 @@
-"""Component routes — GET + POST + PATCH (Phase 1.1)
+"""Component routes — GET + POST + PATCH + DELETE (Phase 1.1 + REQ-d1deda65)
 - GET: 公开,无需鉴权
-- POST / PATCH: 必须 X-API-Key(由 require_api_key 中间件强制)
+- POST / PATCH / DELETE / restore: 必须 X-API-Key(由 require_api_key 中间件强制)
 """
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -26,6 +26,8 @@ def list_components(
     layer: Optional[Layer] = None,
     category: Optional[str] = None,
     is_asset: Optional[bool] = Query(None, description="None=全部;true=只真资产;false=只项目级"),
+    # REQ-d1deda65:默认过滤已归档,需带 include_archived=true 才能看到
+    include_archived: bool = Query(False, description="包含已归档组件(默认隐藏)"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
@@ -48,6 +50,8 @@ def list_components(
         query = query.filter(Component.category == category)
     if is_asset is not None:
         query = query.filter(Component.is_asset == is_asset)
+    if not include_archived:
+        query = query.filter(Component.is_archived == False)  # noqa: E712
     total = query.count()
     items = query.order_by(Component.layer, Component.name).offset(offset).limit(limit).all()
     return {"items": items, "total": total}
@@ -181,7 +185,7 @@ def create_requirement_under_component(
     return RequirementOut.model_validate(req)
 
 
-# ===== 写操作(POST / PATCH)— Phase 1.1 =====
+# ===== 写操作(POST / PATCH / DELETE / restore)— Phase 1.1 + REQ-d1deda65 =====
 # 必须带 X-API-Key(由 require_api_key 强制)
 
 
@@ -226,6 +230,12 @@ def _validate_component_business_rules(payload, db: Session, exclude_id: Optiona
                 raise HTTPException(
                     status.HTTP_422_UNPROCESSABLE_ENTITY,
                     f"composed_of references non-existent component: {entry.component_id}",
+                )
+            # REQ-d1deda65:已归档组件不能被 composed_of 引用
+            if child.is_archived and child.id != exclude_id:
+                raise HTTPException(
+                    status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    f"composed_of references archived component: {entry.component_id}; restore first",
                 )
 
 
@@ -274,6 +284,9 @@ def update_component(
     ).first()
     if not comp:
         raise HTTPException(404, "component not found")
+    # REQ-d1deda65:已归档组件不可 update(对齐 Requirement.update_requirement 模式)
+    if comp.is_archived:
+        raise HTTPException(422, "cannot update archived component; restore first")
 
     # 应用 patch(只更新显式提供的字段)
     update_data = payload.model_dump(exclude_unset=True)
@@ -302,6 +315,86 @@ def update_component(
 def _gen_uuid() -> str:
     import uuid
     return str(uuid.uuid4())
+
+
+# ===== REQ-d1deda65:组件软删除/恢复(Phase 1.1.1)=====
+
+@router.delete(
+    "/{component_id}",
+    response_model=ComponentOut,
+    dependencies=[Depends(require_api_key)],
+)
+def delete_component(
+    component_id: str,
+    reason: str = Query(..., min_length=10, description="删除原因(≥10 字符)"),
+    db: Session = Depends(get_db),
+):
+    """软删除组件 — is_archived=true
+
+    业务规则(REQ-d1deda65):
+    - 组件不存在 → 404
+    - 组件已是 archived → 422
+    - 被其他非 archived 复合组件的 composed_of 引用 → 409(先解除依赖)
+    - reason 必填 ≥10 字符
+    - 删除时把 reason 拼到 description 末尾(对齐 REQ 处理模式)
+    """
+    comp = db.query(Component).filter(
+        (Component.id == component_id) | (Component.name == component_id)
+    ).first()
+    if not comp:
+        raise HTTPException(404, "component not found")
+    if comp.is_archived:
+        raise HTTPException(422, "component already archived")
+
+    # 检测被引用:找 composed_of 含本组件的非 archived 复合组件
+    # 注:composed_of 是 JSON 字段,SQLite 需要 in-memory 过滤
+    referencing = []
+    for other in db.query(Component).filter(Component.is_archived == False).all():  # noqa: E712
+        if other.composed_of and other.id != comp.id:
+            for entry in other.composed_of:
+                if entry.get("component_id") in (comp.id, comp.name):
+                    referencing.append(other.name or other.id)
+                    break
+    if referencing:
+        raise HTTPException(
+            409,
+            f"component is referenced by: {', '.join(referencing)}; remove from composed_of first",
+        )
+
+    comp.is_archived = True
+    # 记录 reason 到 description 末尾(对齐 REQ 处理模式)
+    if reason:
+        if comp.description and "archived_reason:" in comp.description:
+            # 已存在,追加(罕见)
+            sep = "\narchived_reason: "
+        elif comp.description:
+            sep = "\n---\narchived_reason: "
+        else:
+            sep = "archived_reason: "
+        comp.description = (comp.description or "") + sep + reason
+    db.commit()
+    db.refresh(comp)
+    return comp
+
+
+@router.post(
+    "/{component_id}/restore",
+    response_model=ComponentOut,
+    dependencies=[Depends(require_api_key)],
+)
+def restore_component(component_id: str, db: Session = Depends(get_db)):
+    """撤销软删除 — is_archived=false"""
+    comp = db.query(Component).filter(
+        (Component.id == component_id) | (Component.name == component_id)
+    ).first()
+    if not comp:
+        raise HTTPException(404, "component not found")
+    if not comp.is_archived:
+        raise HTTPException(422, "component is not archived")
+    comp.is_archived = False
+    db.commit()
+    db.refresh(comp)
+    return comp
 
 
 @router.get(

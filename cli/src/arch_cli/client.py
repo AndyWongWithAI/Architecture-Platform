@@ -116,6 +116,14 @@ class ArchClient:
     def update_component(self, name: str, data: dict) -> dict:
         return self.request("PATCH", f"/api/v1/components/{name}", json=data)
 
+    def delete_component(self, name: str, reason: str) -> dict:
+        """REQ-d1deda65:软删除组件(is_archived=true)"""
+        return self.request("DELETE", f"/api/v1/components/{name}", params={"reason": reason})
+
+    def restore_component(self, name: str) -> dict:
+        """REQ-d1deda65:撤销软删除(is_archived=false)"""
+        return self.request("POST", f"/api/v1/components/{name}/restore")
+
     # ——— Version ———
 
     def list_versions(self, component_name: str) -> dict:
