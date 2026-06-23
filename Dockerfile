@@ -26,7 +26,9 @@ RUN pip install --no-cache-dir --upgrade pip \
 # 应用代码 + 种子数据
 COPY backend/app/ ./app/
 COPY backend/scripts/ ./scripts/
-COPY docs/components/ /app/docs/components/
+# 完整 docs/ 给 /help 路由用(REQ-8be0f95c,2026-06-23);
+# 之前只 COPY docs/components/ 是为了 seed 启动时导入,现在把整个 docs/ 都带上
+COPY docs/ /app/docs/
 
 # 数据 / 备份目录
 RUN mkdir -p /app/data /app/backups

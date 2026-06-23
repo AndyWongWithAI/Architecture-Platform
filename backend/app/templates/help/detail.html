@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+{# Pygments 代码高亮 CSS(内联,避免 /static 路径问题) #}
+{% if pygments_css %}
+<style>
+{{ pygments_css | safe }}
+.codehilite { background: var(--pico-card-background-color); padding: 0.75rem; border-radius: 4px; overflow-x: auto; }
+.codehilite pre { margin: 0; }
+</style>
+{% endif %}
+
+<nav aria-label="breadcrumb">
+    <ul style="list-style: none; padding: 0; display: flex; gap: 0.5rem; font-size: 0.9rem;">
+        <li><a href="/help">文档</a></li>
+        <li>›</li>
+        <li>{{ category }}</li>
+        <li>›</li>
+        <li><code>{{ filename }}</code></li>
+    </ul>
+</nav>
+
+<article>
+    <header>
+        <small>
+            <span class="badge badge-secondary">{{ category }}</span>
+            <span class="secondary">slug:<code>{{ slug }}</code></span>
+        </small>
+    </header>
+    {# mistune 渲染的 HTML 直接嵌入(mistune 已转义,不需要 | escape) #}
+    {{ html_body | safe }}
+    <footer>
+        <small>
+            <a href="/help">← 返回文档列表</a> ·
+            <a href="/docs" target="_blank" rel="noopener">API</a>
+        </small>
+    </footer>
+</article>
+{% endblock %}

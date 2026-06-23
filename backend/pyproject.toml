@@ -14,6 +14,8 @@ dependencies = [
     "python-multipart>=0.0.9",  # PATCH 表单解析
     "httpx>=0.27",              # Phase 4 UI 服务器代理调后端 API
     "mcp[cli]>=1.0",            # Phase 6 MCP Server(Model Context Protocol)
+    "mistune>=3.0",             # REQ-8be0f95c /help 路由 markdown 渲染
+    "pygments>=2.18",           # REQ-8be0f95c /help 路由代码高亮
 ]
 
 [project.optional-dependencies]
