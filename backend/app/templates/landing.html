@@ -1,0 +1,1635 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARCH.PLATFORM · DRAWING NO. A-001 / 05</title>
+<meta name="description" content="架构平台 — 让「是否复用现有组件」成为开发前默认动作。CLAUDE.md 资产/反馈/复用原则的落点。">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+SC:wght@300;400;500;700&family=Noto+Serif+SC:wght@400;500;700;900&family=Switzer:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+/* ============================================================================
+   ARCH.PLATFORM — DRAWING NO. A-001
+   视觉同源:工程图纸(drafting sheet),不是装饰
+   ============================================================================ */
+
+/* ----- 1. Reset ----- */
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body { min-height: 100vh; }
+img,svg { display: block; max-width: 100%; }
+a { color: inherit; text-decoration: none; }
+button { background: none; border: none; color: inherit; font: inherit; cursor: pointer; }
+ul,ol { list-style: none; }
+
+/* ----- 2. Tokens ----- */
+:root {
+  /* palette - drafting table at night */
+  --ink:        #0E0F12;
+  --paper:      #16181D;
+  --paper-2:    #1C2026;
+  --paper-3:    #232830;
+  --bone:       #E8DCC4;
+  --bone-dim:   rgba(232, 220, 196, 0.62);
+  --faded:      #8A8478;
+  --faded-dim:  rgba(138, 132, 120, 0.55);
+  --blueprint:  #2D3441;
+  --blueprint-2:#3A4451;
+  --phosphor:   #7FFF6B;
+  --phosphor-dim: rgba(127, 255, 107, 0.45);
+  --rust:       #A33B2A;
+  --brass:      #D4A857;
+  --line:       rgba(232, 220, 196, 0.16);
+  --line-strong:rgba(232, 220, 196, 0.42);
+
+  /* type */
+  --f-disp:   'Fraunces', 'Noto Serif SC', Georgia, serif;
+  --f-body:   'Switzer', 'Noto Sans SC', -apple-system, sans-serif;
+  --f-mono:   'JetBrains Mono', 'SF Mono', Consolas, monospace;
+  --f-cn-d:   'Noto Serif SC', 'Fraunces', serif;
+  --f-cn-b:   'Noto Sans SC', 'Switzer', sans-serif;
+
+  /* layout */
+  --gutter:   clamp(1.25rem, 3vw, 2.75rem);
+  --col-gap:  1.5rem;
+  --max:      1480px;
+  --row-gap:  clamp(2.5rem, 5vw, 4.5rem);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,*::before,*::after { animation: none !important; transition: none !important; }
+}
+
+/* ----- 3. Base typography ----- */
+body {
+  font-family: var(--f-body), var(--f-cn-b);
+  background: var(--ink);
+  color: var(--bone);
+  font-size: 15px;
+  line-height: 1.55;
+  font-weight: 400;
+  font-feature-settings: 'ss01','ss02','cv11','tnum' on;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+/* Background: drafting paper grid, faded */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, var(--blueprint) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--blueprint) 1px, transparent 1px);
+  background-size: 96px 96px;
+  background-position: 0 0;
+  pointer-events: none;
+  z-index: 0;
+  -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 30%, #000 0%, #000 50%, transparent 100%);
+          mask-image: radial-gradient(ellipse 80% 70% at 50% 30%, #000 0%, #000 50%, transparent 100%);
+  opacity: 0.7;
+}
+
+/* faint horizontal scan line noise for "terminal" feel */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0,
+    transparent 3px,
+    rgba(232, 220, 196, 0.012) 3px,
+    rgba(232, 220, 196, 0.012) 4px
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* selection */
+::selection { background: var(--phosphor); color: var(--ink); }
+
+/* focus ring - visible keyboard only */
+:focus-visible {
+  outline: 2px solid var(--phosphor);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+/* mono micro-label */
+.mono {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 500;
+  color: var(--faded);
+}
+
+/* ----- 4. Sheet frame ----- */
+.sheet {
+  position: relative;
+  z-index: 2;
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: clamp(1rem, 2.5vw, 1.75rem) var(--gutter) var(--gutter);
+  min-height: 100vh;
+}
+
+/* outer sheet border - drawing frame */
+.sheet::before {
+  content: '';
+  position: absolute;
+  inset: 0.5rem var(--gutter) 0.5rem var(--gutter);
+  border: 1px solid var(--line-strong);
+  pointer-events: none;
+  z-index: -1;
+}
+.sheet::after {
+  content: '';
+  position: absolute;
+  inset: calc(0.5rem + 8px) calc(var(--gutter) + 8px) calc(0.5rem + 8px) calc(var(--gutter) + 8px);
+  border: 1px solid var(--line);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* ----- 5. Nav strip ----- */
+.nav-strip {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  margin-bottom: 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line-strong);
+  font-family: var(--f-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.nav-strip::-webkit-scrollbar { display: none; }
+.nav-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 0.9rem;
+  color: var(--faded);
+  border-right: 1px solid var(--line);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 0.15s, background 0.15s;
+  position: relative;
+}
+.nav-item:hover { color: var(--phosphor); background: var(--paper); }
+.nav-item.active { color: var(--bone); background: var(--paper-2); }
+.nav-item.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px; left: 0; right: 0;
+  height: 2px;
+  background: var(--phosphor);
+}
+.nav-item .k {
+  color: var(--brass);
+  font-weight: 500;
+  letter-spacing: 0.05em;
+}
+.nav-item .v { color: inherit; }
+.nav-item .c {
+  color: var(--phosphor);
+  font-weight: 500;
+  font-size: 9.5px;
+  padding: 0 0.35rem;
+  border: 1px solid var(--phosphor-dim);
+  border-radius: 1px;
+}
+.nav-sep { flex: 1; border-right: 1px solid var(--line); }
+.nav-item.live-dot { color: var(--phosphor); }
+.nav-item.live-dot::before {
+  content: '';
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--phosphor);
+  box-shadow: 0 0 4px var(--phosphor);
+  display: inline-block;
+}
+
+/* ----- 5. Sheet header (top strip) ----- */
+.sheet-head {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.65rem 0 0.65rem;
+  font-family: var(--f-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--faded);
+}
+.sheet-head .l, .sheet-head .r { display: flex; gap: 1.25rem; }
+.sheet-head .l { justify-content: flex-start; }
+.sheet-head .r { justify-content: flex-end; align-items: center; }
+.sheet-head .c { text-align: center; }
+.sheet-head .c strong { color: var(--bone); font-weight: 500; }
+.sheet-head .sep { color: var(--faded-dim); }
+.sheet-head .live {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  color: var(--phosphor);
+}
+.sheet-head .live::before {
+  content: '';
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--phosphor);
+  box-shadow: 0 0 6px var(--phosphor);
+  animation: blink 1.6s ease-in-out infinite;
+}
+@keyframes blink { 50% { opacity: 0.25; } }
+
+/* ----- 6. Section base ----- */
+.section {
+  position: relative;
+  padding: var(--row-gap) 0 calc(var(--row-gap) * 0.7);
+  border-top: 1px solid var(--line);
+}
+.section:first-of-type { border-top: 0; padding-top: clamp(2rem, 4vw, 3.5rem); }
+
+/* Section marker: circled letter + type label */
+.sec-mark {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-bottom: 1.75rem;
+  font-family: var(--f-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.sec-mark .dot {
+  width: 30px; height: 30px;
+  border: 1.5px solid var(--brass);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--brass);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0;
+  flex-shrink: 0;
+}
+.sec-mark .leader {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, var(--brass) 0%, var(--line) 30%, transparent 100%);
+  max-width: 80px;
+}
+.sec-mark .lbl { color: var(--bone-dim); font-weight: 500; }
+.sec-mark .typ { color: var(--faded); margin-left: 0.5rem; }
+.sec-mark .num { color: var(--faded-dim); margin-left: auto; }
+
+/* ----- 7. HERO: ELEVATION ----- */
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: clamp(1.5rem, 4vw, 3.5rem);
+  align-items: end;
+  min-height: 60vh;
+  padding-top: 1rem;
+}
+.hero-l { position: relative; }
+.hero-r { position: relative; }
+
+.hero-eyebrow {
+  display: flex; align-items: center; gap: 0.75rem;
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--brass);
+  margin-bottom: 1.5rem;
+}
+.hero-eyebrow::before {
+  content: '';
+  width: 24px; height: 1px; background: var(--brass);
+}
+
+.hero h1 {
+  font-family: var(--f-disp), var(--f-cn-d);
+  font-weight: 400;
+  font-size: clamp(3.25rem, 9vw, 7.5rem);
+  line-height: 0.92;
+  letter-spacing: -0.04em;
+  color: var(--bone);
+  font-variation-settings: "opsz" 144, "SOFT" 0, "WONK" 1;
+  margin-bottom: 1.5rem;
+}
+.hero h1 .cn {
+  display: block;
+  font-family: var(--f-cn-d);
+  font-weight: 500;
+  font-size: clamp(1.5rem, 3vw, 2.25rem);
+  letter-spacing: 0.05em;
+  color: var(--bone-dim);
+  margin-top: 0.5rem;
+}
+.hero h1 em {
+  font-style: italic;
+  color: var(--brass);
+  font-variation-settings: "opsz" 144, "SOFT" 100, "WONK" 1;
+}
+
+.hero-stmt {
+  font-family: var(--f-disp), var(--f-cn-d);
+  font-size: clamp(1.15rem, 1.8vw, 1.4rem);
+  line-height: 1.4;
+  color: var(--bone);
+  max-width: 36ch;
+  font-weight: 300;
+  font-style: italic;
+  font-variation-settings: "opsz" 36, "SOFT" 80;
+}
+.hero-stmt strong {
+  font-style: normal;
+  font-weight: 500;
+  color: var(--phosphor);
+  font-family: var(--f-mono);
+  font-size: 0.85em;
+  letter-spacing: -0.01em;
+}
+
+/* hero right column - project info card */
+.project-info {
+  border: 1px solid var(--line);
+  background: var(--paper);
+  padding: 1.5rem 1.5rem 1.25rem;
+  font-family: var(--f-mono);
+  font-size: 11px;
+  line-height: 1.7;
+  position: relative;
+}
+.project-info::before {
+  content: 'PROJECT INFO';
+  position: absolute; top: -6px; left: 1rem;
+  background: var(--ink);
+  padding: 0 0.4rem;
+  color: var(--faded);
+  letter-spacing: 0.18em;
+  font-size: 9.5px;
+}
+.project-info dl { display: grid; grid-template-columns: 80px 1fr; gap: 0.5rem 1rem; }
+.project-info dt { color: var(--faded); }
+.project-info dd { color: var(--bone); }
+.project-info .ok { color: var(--phosphor); }
+
+/* ----- 7.5 Hero CTAs ----- */
+.hero-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 2.25rem;
+}
+.cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.7rem 1.15rem;
+  font-family: var(--f-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 500;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+  white-space: nowrap;
+}
+.cta-primary {
+  background: var(--phosphor);
+  color: var(--ink);
+  border-color: var(--phosphor);
+}
+.cta-primary:hover {
+  background: transparent;
+  color: var(--phosphor);
+  box-shadow: 0 0 0 1px var(--phosphor), 0 0 16px var(--phosphor-dim);
+}
+.cta-ghost {
+  background: transparent;
+  color: var(--bone);
+  border-color: var(--line-strong);
+}
+.cta-ghost:hover {
+  color: var(--phosphor);
+  border-color: var(--phosphor);
+}
+
+/* ----- 7.6 Copy button on code blocks ----- */
+.copy-wrap { position: relative; }
+.copy-btn {
+  position: absolute;
+  top: 50%;
+  right: 0.4rem;
+  transform: translateY(-50%);
+  font-family: var(--f-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--faded);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, border-color 0.15s;
+}
+.copy-wrap:hover .copy-btn,
+.copy-btn:focus-visible { opacity: 1; }
+.copy-btn:hover { color: var(--phosphor); border-color: var(--phosphor-dim); }
+.copy-btn.copied { color: var(--phosphor); border-color: var(--phosphor); opacity: 1; }
+.copy-toast {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--phosphor);
+  color: var(--ink);
+  padding: 0.6rem 1.2rem;
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  font-weight: 600;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s;
+  z-index: 100;
+  box-shadow: 0 4px 20px rgba(127, 255, 107, 0.3);
+}
+.copy-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* card-as-link (plan entries) */
+.entry-link {
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  color: inherit;
+  flex: 1;
+  position: relative;
+}
+.entry-link::after {
+  content: '→';
+  position: absolute;
+  top: 1.5rem;
+  right: 1.25rem;
+  font-family: var(--f-mono);
+  color: var(--faded);
+  font-size: 14px;
+  transition: color 0.15s, transform 0.15s;
+}
+.entry-link:hover::after {
+  color: var(--phosphor);
+  transform: translateX(3px);
+}
+
+/* sched row as link */
+.sched-link {
+  display: contents;
+  color: inherit;
+}
+.sched-link:hover .sched-row { background: var(--paper-2); cursor: pointer; }
+
+/* dimension line: used on key numbers */
+.dim {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--faded);
+}
+.dim::before, .dim::after {
+  content: '';
+  height: 1px;
+  background: var(--line-strong);
+  width: 14px;
+  position: relative;
+}
+.dim::before { transform: translateX(0); }
+.dim::after { transform: translateX(0); }
+.dim-line {
+  display: flex; align-items: center; gap: 0.6rem;
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--faded);
+  text-transform: uppercase;
+  margin-top: 0.5rem;
+}
+.dim-line::before {
+  content: '|'; color: var(--bone-dim); margin-right: 2px;
+}
+.dim-line::after {
+  content: '|'; color: var(--bone-dim); margin-left: 2px;
+}
+.dim-line .bar {
+  flex: 1; height: 1px;
+  background: linear-gradient(to right, var(--line-strong) 0%, var(--line-strong) 100%);
+  position: relative;
+}
+.dim-line .bar::before, .dim-line .bar::after {
+  content: ''; position: absolute; top: 50%;
+  width: 6px; height: 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  transform: translateY(-50%);
+  background: var(--ink);
+}
+.dim-line .bar::before { left: -3px; }
+.dim-line .bar::after  { right: -3px; }
+
+/* ----- 8. PLAN: 4 ENTRIES ----- */
+.plan-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line-strong);
+}
+.entry {
+  background: var(--paper);
+  padding: 1.5rem 1.25rem 1.25rem;
+  position: relative;
+  min-height: 280px;
+  display: flex; flex-direction: column;
+  transition: background 0.2s;
+}
+.entry:hover { background: var(--paper-2); }
+.entry .num {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  color: var(--faded);
+  letter-spacing: 0.15em;
+  margin-bottom: 0.5rem;
+}
+.entry .icon {
+  width: 32px; height: 32px;
+  margin-bottom: 1rem;
+  color: var(--bone);
+}
+.entry h3 {
+  font-family: var(--f-disp), var(--f-cn-d);
+  font-size: 1.6rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.25rem;
+  color: var(--bone);
+}
+.entry .sub {
+  font-family: var(--f-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--brass);
+  margin-bottom: 1rem;
+}
+.entry p {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--bone-dim);
+  margin-bottom: 1rem;
+  flex: 1;
+}
+.entry code {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  color: var(--phosphor);
+  background: var(--ink);
+  padding: 0.4rem 0.5rem;
+  display: block;
+  border-left: 2px solid var(--phosphor);
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.entry .meta {
+  margin-top: 0.85rem;
+  display: flex; gap: 0.5rem; flex-wrap: wrap;
+  font-family: var(--f-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--faded);
+}
+.entry .meta span { padding: 2px 6px; border: 1px solid var(--line); }
+.entry .meta .live { color: var(--phosphor); border-color: var(--phosphor-dim); }
+
+/* entry SVG icon */
+.entry .icon svg { width: 100%; height: 100%; stroke: currentColor; fill: none; stroke-width: 1.5; }
+
+/* ----- 9. DETAIL: CAPABILITIES ----- */
+.detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+  gap: clamp(1.5rem, 3vw, 3rem);
+}
+.detail-aside {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--bone-dim);
+  letter-spacing: 0.04em;
+  position: relative;
+  padding-right: 1rem;
+  border-right: 1px solid var(--line);
+}
+.detail-aside .h {
+  display: block;
+  color: var(--faded);
+  font-size: 9.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+.detail-aside p { margin-bottom: 1rem; }
+
+.cap-list { display: flex; flex-direction: column; }
+.cap {
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 0;
+  border-top: 1px solid var(--line);
+  position: relative;
+  transition: padding-left 0.15s;
+  text-decoration: none;
+  color: inherit;
+}
+.cap:last-child { border-bottom: 1px solid var(--line); }
+.cap:hover { padding-left: 0.5rem; background: linear-gradient(to right, rgba(127,255,107,0.03), transparent 30%); }
+a.cap:hover { padding-left: 0.75rem; }
+a.cap:hover .tag.ok { border-color: var(--phosphor); }
+.cap .id {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  color: var(--brass);
+  letter-spacing: 0.05em;
+}
+.cap .body h4 {
+  font-family: var(--f-disp), var(--f-cn-d);
+  font-size: 1.05rem;
+  font-weight: 500;
+  color: var(--bone);
+  letter-spacing: -0.01em;
+  margin-bottom: 0.15rem;
+}
+.cap .body p {
+  font-size: 12.5px;
+  color: var(--faded);
+  line-height: 1.45;
+}
+.cap .tag {
+  font-family: var(--f-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--faded);
+  padding: 3px 8px;
+  border: 1px solid var(--line-strong);
+}
+.cap .tag.ok { color: var(--phosphor); border-color: var(--phosphor-dim); }
+.cap .tag.warn { color: var(--brass); border-color: var(--brass); }
+.cap .tag.crit { color: var(--rust); border-color: var(--rust); }
+
+/* annotation cloud - callout attached to one capability */
+.cap.callout { position: relative; }
+.cap.callout::before {
+  content: '';
+  position: absolute;
+  left: -1rem; top: 1rem;
+  width: 0.5rem; height: 0.5rem;
+  border: 1.5px solid var(--brass);
+  border-radius: 50%;
+  background: var(--ink);
+}
+.cap.callout::after {
+  content: '';
+  position: absolute;
+  left: -0.75rem; top: 1.5rem;
+  width: 1rem; height: 1px;
+  background: var(--brass);
+}
+
+/* ----- 10. SECTION: FEEDBACK LOOP ----- */
+.loop-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: clamp(1.5rem, 3vw, 3rem);
+  align-items: start;
+}
+.loop-aside {
+  font-family: var(--f-disp), var(--f-cn-d);
+  font-size: 1.1rem;
+  line-height: 1.5;
+  color: var(--bone);
+  font-weight: 300;
+  font-style: italic;
+  font-variation-settings: "opsz" 36, "SOFT" 80;
+}
+.loop-aside p { margin-bottom: 0.85rem; }
+.loop-aside p strong {
+  font-style: normal; font-weight: 500;
+  color: var(--phosphor);
+  font-family: var(--f-mono);
+  font-size: 0.78em;
+  letter-spacing: 0.04em;
+}
+.loop-aside .quote-mark {
+  font-family: var(--f-disp);
+  font-size: 4rem;
+  line-height: 0.5;
+  color: var(--brass);
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+/* feedback loop diagram - SVG */
+.loop-svg {
+  width: 100%;
+  aspect-ratio: 1.4 / 1;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  position: relative;
+}
+.loop-svg::before {
+  content: 'FIG. 01 · FEEDBACK LOOP, scale 1:1';
+  position: absolute; top: 0.5rem; left: 0.85rem;
+  font-family: var(--f-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.15em;
+  color: var(--faded);
+}
+.loop-svg svg { width: 100%; height: 100%; }
+
+/* ----- 11. SCHEDULE: LIVE DATA ----- */
+.schedule {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  background: var(--paper);
+  border: 1px solid var(--line-strong);
+}
+.sched-head {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr 0.8fr 0.6fr 0.8fr 0.6fr;
+  gap: 1rem;
+  padding: 0.65rem 1rem;
+  background: var(--paper-2);
+  border-bottom: 1px solid var(--line-strong);
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--faded);
+}
+.sched-row {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr 0.8fr 0.6fr 0.8fr 0.6fr;
+  gap: 1rem;
+  padding: 0.7rem 1rem;
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--f-mono);
+  font-size: 12px;
+  color: var(--bone);
+  transition: background 0.15s;
+}
+.sched-row:hover { background: var(--paper-2); }
+.sched-row:last-child { border-bottom: 0; }
+.sched-row .ts { color: var(--faded); font-size: 11px; }
+.sched-row .ok { color: var(--phosphor); }
+.sched-row .warn { color: var(--brass); }
+.sched-row .crit { color: var(--rust); }
+.sched-row .id { color: var(--brass); }
+
+/* stat strip at top of schedule */
+.stat-strip {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line-strong);
+  margin-bottom: 0;
+}
+.stat {
+  background: var(--paper);
+  padding: 1.25rem 1.25rem 1rem;
+  position: relative;
+}
+.stat .lbl {
+  font-family: var(--f-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--faded);
+  margin-bottom: 0.4rem;
+}
+.stat .val {
+  font-family: var(--f-disp);
+  font-size: 2.4rem;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--bone);
+  font-variation-settings: "opsz" 72, "WONK" 0;
+  letter-spacing: -0.02em;
+}
+.stat .val .u {
+  font-size: 0.5em;
+  color: var(--faded);
+  margin-left: 0.2em;
+  font-family: var(--f-mono);
+  letter-spacing: 0.05em;
+  font-weight: 400;
+}
+.stat .delta {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  margin-top: 0.5rem;
+  color: var(--phosphor);
+}
+.stat .delta.warn { color: var(--brass); }
+.stat .delta.crit { color: var(--rust); }
+.stat .dim-line { font-size: 9px; margin-top: 0.85rem; }
+
+/* ----- 12. Title block (signature) ----- */
+.titleblock {
+  display: flex;
+  align-items: flex-start;
+  border: 1.5px solid var(--bone);
+  background: var(--ink);
+  margin-top: var(--row-gap);
+  font-family: var(--f-mono);
+  position: relative;
+  height: auto;
+  min-height: 0;
+}
+.titleblock::before {
+  content: 'TITLE BLOCK';
+  position: absolute; top: -6px; left: 1rem;
+  background: var(--ink);
+  padding: 0 0.4rem;
+  color: var(--faded);
+  letter-spacing: 0.18em;
+  font-size: 9.5px;
+}
+.tb-cell {
+  flex: 1 1 0;
+  padding: 0.85rem 1rem;
+  border-right: 1px solid var(--line-strong);
+  min-width: 0;
+  min-height: 0;
+  height: auto;
+}
+.tb-cell:last-child { border-right: 0; }
+.tb-cell.sheet { flex: 0 0 auto; min-width: 140px; max-width: 200px; }
+.tb-cell:last-child { border-right: 0; }
+.tb-cell .h {
+  display: block;
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  color: var(--faded);
+  margin-bottom: 0.3rem;
+  text-transform: uppercase;
+}
+.tb-cell .v {
+  display: block;
+  font-size: 12.5px;
+  color: var(--bone);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+.tb-cell .v.big {
+  font-family: var(--f-disp);
+  font-size: 1.4rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--brass);
+}
+.tb-cell.sheet .v { font-family: var(--f-disp); font-size: 1.6rem; font-weight: 600; color: var(--bone); letter-spacing: 0.02em; }
+
+/* revision strip */
+.revstrip {
+  display: flex;
+  flex-direction: column;
+  border: 1.5px solid var(--bone);
+  border-top: 0;
+  font-family: var(--f-mono);
+  font-size: 11px;
+}
+.revstrip .cell {
+  padding: 0.55rem 1rem;
+  border-right: 1px solid var(--line-strong);
+}
+.revstrip .cell:last-child { border-right: 0; }
+.revstrip .h {
+  color: var(--faded);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 0.2rem;
+}
+.revstrip .row {
+  display: grid;
+  grid-template-columns: 60px 1fr 130px;
+  border-bottom: 1px solid var(--line);
+}
+.revstrip .row:last-child { border-bottom: 0; }
+.revstrip .row > div { padding: 0.45rem 1rem; border-right: 1px solid var(--line); }
+.revstrip .row > div:last-child { border-right: 0; }
+.revstrip .row.current { background: var(--paper); }
+.revstrip .row.current .v { color: var(--phosphor); }
+
+/* ----- 13. Footer line ----- */
+.foot-line {
+  margin-top: 2rem;
+  display: flex; justify-content: space-between; align-items: center;
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--faded);
+  padding: 1rem 0;
+  border-top: 1px solid var(--line);
+}
+.foot-line a { transition: color 0.15s; }
+.foot-line a:hover { color: var(--phosphor); }
+
+/* ----- 14. North arrow (top right brand mark) ----- */
+.north {
+  position: absolute;
+  top: clamp(4rem, 6vw, 5rem);
+  right: var(--gutter);
+  width: 56px; height: 56px;
+  opacity: 0.6;
+  z-index: 1;
+}
+.north svg { width: 100%; height: 100%; }
+.north-text {
+  position: absolute; top: calc(clamp(4rem, 6vw, 5rem) + 60px);
+  right: var(--gutter);
+  font-family: var(--f-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--faded);
+  text-align: center;
+  width: 56px;
+  z-index: 1;
+  opacity: 0.7;
+}
+
+/* ----- 15. Animations: orchestrated page load ----- */
+@keyframes draw {
+  from { stroke-dashoffset: var(--len, 1000); }
+  to   { stroke-dashoffset: 0; }
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes stamp {
+  0%   { opacity: 0; transform: scale(0.95); }
+  60%  { opacity: 1; transform: scale(1.01); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.frame-draw {
+  stroke-dasharray: 3000;
+  stroke-dashoffset: 3000;
+  animation: draw 1.2s ease-out 0.1s forwards;
+}
+.loop-anim path, .loop-anim line, .loop-anim polyline {
+  stroke-dasharray: 800;
+  stroke-dashoffset: 800;
+  animation: draw 1.5s ease-out 0.5s forwards;
+}
+.sheet-head { animation: fadeIn 0.4s ease-out 0.1s both; }
+.section    { animation: fadeUp 0.6s ease-out both; }
+.section:nth-of-type(1) { animation-delay: 0.2s; }
+.section:nth-of-type(2) { animation-delay: 0.4s; }
+.section:nth-of-type(3) { animation-delay: 0.6s; }
+.section:nth-of-type(4) { animation-delay: 0.8s; }
+.section:nth-of-type(5) { animation-delay: 1.0s; }
+.titleblock { animation: stamp 0.5s ease-out 1.4s both; }
+.revstrip   { animation: fadeUp 0.5s ease-out 1.6s both; }
+.north      { animation: fadeIn 0.5s ease-out 1.2s both; }
+
+/* ----- 16. Responsive ----- */
+@media (max-width: 1024px) {
+  .hero { grid-template-columns: 1fr; }
+  .plan-grid { grid-template-columns: repeat(2, 1fr); }
+  .detail-grid { grid-template-columns: 1fr; }
+  .detail-aside { border-right: 0; border-bottom: 1px solid var(--line); padding-bottom: 1rem; }
+  .loop-wrap { grid-template-columns: 1fr; }
+  .stat-strip { grid-template-columns: repeat(2, 1fr); }
+  .sched-head, .sched-row { grid-template-columns: 1fr 1fr 0.6fr; }
+  .sched-head > :nth-child(4),
+  .sched-head > :nth-child(6),
+  .sched-row > :nth-child(4),
+  .sched-row > :nth-child(6) { display: none; }
+  .titleblock { flex-wrap: wrap; }
+  .titleblock .tb-cell { flex: 1 1 50%; border-bottom: 1px solid var(--line); }
+  .north, .north-text { display: none; }
+}
+@media (max-width: 640px) {
+  .sheet-head { grid-template-columns: 1fr; text-align: center; gap: 0.4rem; }
+  .sheet-head .l, .sheet-head .r { justify-content: center; }
+  .plan-grid { grid-template-columns: 1fr; }
+  .hero h1 { font-size: 2.75rem; }
+  .stat-strip { grid-template-columns: 1fr; }
+  .titleblock { flex-direction: column; }
+  .titleblock .tb-cell { flex: 1 1 auto; border-right: 0; border-bottom: 1px solid var(--line); }
+  .titleblock .tb-cell:last-child { border-bottom: 0; }
+  .entry { min-height: auto; }
+  .sched-head, .sched-row { grid-template-columns: 1fr 1fr; font-size: 11px; }
+  .revstrip { grid-template-columns: 1fr; }
+  .revstrip .row { grid-template-columns: 1fr; }
+  .revstrip .row > div { border-right: 0; border-bottom: 1px solid var(--line); }
+}
+</style>
+</head>
+<body>
+
+<div class="sheet">
+
+  <!-- =================== SHEET HEADER =================== -->
+  <header class="sheet-head">
+    <div class="l">
+      <span>项目 · <strong style="color:var(--bone)">架构平台</strong></span>
+      <span class="sep">/</span>
+      <span>比例 1:1</span>
+    </div>
+    <div class="c">
+      <strong>图号 A-001 / 05</strong>
+    </div>
+    <div class="r">
+      <span class="live">系统在线</span>
+    </div>
+  </header>
+
+  <!-- =================== NAV STRIP =================== -->
+  <nav class="nav-strip" aria-label="主导航">
+    <a href="/" class="nav-item active"><span class="k">00</span><span class="v">总览</span></a>
+    <a href="/components" class="nav-item"><span class="k">01</span><span class="v">组件</span><span class="c">{{ total_components }}</span></a>
+    <a href="/feedbacks" class="nav-item"><span class="k">02</span><span class="v">反馈</span><span class="c">{{ total_feedbacks }}</span></a>
+    <a href="/deployments" class="nav-item"><span class="k">03</span><span class="v">部署</span><span class="c">{{ total_deployments }}</span></a>
+    <a href="/requirements" class="nav-item"><span class="k">04</span><span class="v">需求</span></a>
+    <a href="/doubt" class="nav-item"><span class="k">05</span><span class="v">验证</span></a>
+    <a href="/literature" class="nav-item"><span class="k">06</span><span class="v">文献</span></a>
+    <a href="/audit" class="nav-item"><span class="k">07</span><span class="v">自审</span></a>
+    <span class="nav-sep"></span>
+    <a href="/docs" target="_blank" rel="noopener" class="nav-item">API ↗</a>
+    <a href="/healthz" class="nav-item live-dot">健康</a>
+  </nav>
+
+  <!-- North arrow - brand mark -->
+  <div class="north" aria-hidden="true">
+    <svg viewBox="0 0 56 56" fill="none" stroke="currentColor" style="color:var(--brass)">
+      <circle cx="28" cy="28" r="26" stroke-width="1" opacity="0.5"/>
+      <circle cx="28" cy="28" r="22" stroke-width="0.5" opacity="0.3"/>
+      <path d="M28 6 L34 28 L28 24 L22 28 Z" fill="currentColor" opacity="0.9"/>
+      <line x1="28" y1="28" x2="28" y2="50" stroke-width="0.5" opacity="0.5"/>
+      <line x1="6" y1="28" x2="50" y2="28" stroke-width="0.5" opacity="0.5" stroke-dasharray="2 2"/>
+      <text x="28" y="20" text-anchor="middle" fill="currentColor" stroke="none" font-family="JetBrains Mono" font-size="8" font-weight="700">N</text>
+    </svg>
+  </div>
+  <div class="north-text">TRUE<br>NORTH</div>
+
+  <!-- =================== SECTION 01 · ELEVATION =================== -->
+  <section class="section">
+    <div class="sec-mark">
+      <span class="dot">A</span>
+      <span class="lbl">第 1 节</span>
+      <span class="leader"></span>
+      <span class="typ">立面图 ELEVATION</span>
+      <span class="num">第 1/5 张</span>
+    </div>
+
+    <div class="hero">
+      <div class="hero-l">
+        <div class="hero-eyebrow">软件架构平台 · SOFTWARE ARCHITECTURE PLATFORM</div>
+        <h1>
+          像建筑师
+          <em>一样构建。</em>
+          <span class="cn">在写代码之前,先看图纸。</span>
+        </h1>
+        <p class="hero-stmt">
+          一个让 <strong>「是否复用现有组件」</strong> 成为开发前默认动作的工程平台。
+          16 个 MCP 工具、4 个入口、5 维健康检查——CLAUDE.md 资产/反馈/复用原则的落点。
+        </p>
+
+        <div class="hero-cta">
+          <a href="/components" class="cta cta-primary">立即接入 →</a>
+          <a href="/docs" class="cta cta-ghost">查看 API</a>
+          <a href="https://github.com/AndyWongWithAI/Architecture-Platform" target="_blank" rel="noopener" class="cta cta-ghost">GitHub ↗</a>
+        </div>
+      </div>
+
+      <aside class="hero-r">
+        <div class="project-info">
+          <dl>
+            <dt>负责人</dt><dd>黄谦敏 / AndyWongWithAI</dd>
+            <dt>状态</dt><dd class="ok">● 阶段 0–5 已完成</dd>
+            <dt>API 端点</dt><dd>15 (FastAPI)</dd>
+            <dt>组件数</dt><dd>{{ total_components }} 已登记</dd>
+            <dt>分层</dt><dd>L0 / L1 / L2 / L3</dd>
+            <dt>资产率</dt><dd class="ok">{{ assets_count }} / {{ total_components }} ({{ (assets_count / total_components * 100) | round(0, 'floor') | int if total_components else 0 }}%)</dd>
+            <dt>域名</dt><dd>arch.intelab.cn</dd>
+            <dt>源码</dt><dd><a href="https://github.com/AndyWongWithAI/Architecture-Platform" target="_blank" rel="noopener" style="color:var(--phosphor)">AndyWongWithAI ↗</a></dd>
+          </dl>
+        </div>
+        <div class="dim-line">
+          <span>0</span>
+          <span class="bar"></span>
+          <span style="color:var(--phosphor)">●</span>
+        </div>
+        <p class="mono" style="margin-top:0.5rem;color:var(--bone-dim);letter-spacing:0.06em">实时数据 · 60 秒刷新</p>
+      </aside>
+    </div>
+  </section>
+
+  <!-- =================== SECTION 02 · PLAN =================== -->
+  <section class="section">
+    <div class="sec-mark">
+      <span class="dot">B</span>
+      <span class="lbl">第 2 节</span>
+      <span class="leader"></span>
+      <span class="typ">平面图 PLAN · 4 入口</span>
+      <span class="num">第 2/5 张</span>
+    </div>
+
+    <p class="mono" style="margin-bottom:1.5rem;max-width:60ch;color:var(--bone-dim);letter-spacing:0.04em;font-size:11.5px;text-transform:none">
+      四种方式接入平台,选最适合你工作流的那个。所有入口最终都回到同一套 REST 表面,工具选型不会锁死你。
+    </p>
+
+    <div class="plan-grid">
+      <!-- Entry 1: Web -->
+      <article class="entry">
+        <a href="/components" class="entry-link">
+          <div class="num">01 / 04</div>
+          <div class="icon" aria-hidden="true">
+            <svg viewBox="0 0 32 32"><rect x="3" y="6" width="26" height="20"/><line x1="3" y1="12" x2="29" y2="12"/><circle cx="6.5" cy="9" r="0.7" fill="currentColor"/><circle cx="9" cy="9" r="0.7" fill="currentColor"/><circle cx="11.5" cy="9" r="0.7" fill="currentColor"/></svg>
+          </div>
+          <h3>Web 网页</h3>
+          <div class="sub">8 页面 · 只读</div>
+          <p>浏览器直接访问,看板式浏览组件、反馈、部署、健康状态。</p>
+          <div class="copy-wrap"><code>arch.intelab.cn</code><button class="copy-btn" data-copy="arch.intelab.cn">复制</button></div>
+          <div class="meta">
+            <span class="live">● 在线</span>
+            <span>免登录</span>
+          </div>
+        </a>
+      </article>
+
+      <!-- Entry 2: CLI -->
+      <article class="entry">
+        <a href="https://pypi.org/project/arch-platform-cli/" target="_blank" rel="noopener" class="entry-link">
+          <div class="num">02 / 04</div>
+          <div class="icon" aria-hidden="true">
+            <svg viewBox="0 0 32 32"><polyline points="6,10 2,14 6,18"/><polyline points="26,10 30,14 26,18"/><line x1="20" y1="6" x2="12" y2="22"/></svg>
+          </div>
+          <h3>CLI 命令行</h3>
+          <div class="sub">12 子命令 · pip</div>
+          <p>开发者本地终端,搜索/登记/反馈/健康检查,CI 友好。</p>
+          <div class="copy-wrap"><code>pip install arch-platform-cli</code><button class="copy-btn" data-copy="pip install arch-platform-cli">复制</button></div>
+          <div class="meta">
+            <span>v0.2.0</span>
+            <span>PYPI</span>
+          </div>
+        </a>
+      </article>
+
+      <!-- Entry 3: Action -->
+      <article class="entry">
+        <a href="https://github.com/AndyWongWithAI/Architecture-Platform/tree/main/.github/actions" target="_blank" rel="noopener" class="entry-link">
+          <div class="num">03 / 04</div>
+          <div class="icon" aria-hidden="true">
+            <svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="3"/><path d="M16 4 L16 9"/><path d="M16 23 L16 28"/><path d="M4 16 L9 16"/><path d="M23 16 L28 16"/><path d="M7.5 7.5 L11 11"/><path d="M21 21 L24.5 24.5"/><path d="M7.5 24.5 L11 21"/><path d="M21 11 L24.5 7.5"/></svg>
+          </div>
+          <h3>Action 流水线</h3>
+          <div class="sub">3 动作 · CI/CD</div>
+          <p>GitHub Actions,部署即登记,反馈即同步,工单即闭环。</p>
+          <div class="copy-wrap"><code>uses: AndyWongWithAI/Architecture-Platform/.github/actions/arch-platform-register@v1</code><button class="copy-btn" data-copy="uses: AndyWongWithAI/Architecture-Platform/.github/actions/arch-platform-register@v1">复制</button></div>
+          <div class="meta">
+            <span>@v1.0.0</span>
+            <span>CI/CD</span>
+          </div>
+        </a>
+      </article>
+
+      <!-- Entry 4: MCP -->
+      <article class="entry">
+        <a href="/docs#mcp" class="entry-link">
+          <div class="num">04 / 04</div>
+          <div class="icon" aria-hidden="true">
+            <svg viewBox="0 0 32 32"><path d="M8 12 L8 20 L12 20 L12 16 L20 16 L20 20 L24 20 L24 12 L20 12 L20 14 L12 14 L12 12 Z"/><circle cx="16" cy="8" r="2"/><circle cx="16" cy="24" r="2"/></svg>
+          </div>
+          <h3>MCP 协议</h3>
+          <div class="sub">16 工具 · Agent 就绪</div>
+          <p>Model Context Protocol,Claude / Cline / Cursor 直接调用,让 Agent 在写代码前先查组件。</p>
+          <div class="copy-wrap"><code>arch.intelab.cn/mcp</code><button class="copy-btn" data-copy="arch.intelab.cn/mcp">复制</button></div>
+          <div class="meta">
+            <span class="live">● 16 工具</span>
+            <span>标准协议</span>
+          </div>
+        </a>
+      </article>
+    </div>
+
+    <div class="dim-line" style="margin-top:1.25rem">
+      <span>0</span>
+      <span class="bar"></span>
+      <span style="color:var(--brass)">4</span>
+    </div>
+    <p class="mono" style="margin-top:0.5rem;color:var(--bone-dim);letter-spacing:0.06em">四入口 · 一真相</p>
+  </section>
+
+  <!-- =================== SECTION 03 · DETAIL =================== -->
+  <section class="section">
+    <div class="sec-mark">
+      <span class="dot">C</span>
+      <span class="lbl">第 3 节</span>
+      <span class="leader"></span>
+      <span class="typ">详图 DETAIL · 能力清单</span>
+      <span class="num">第 3/5 张</span>
+    </div>
+
+    <div class="detail-grid">
+      <aside class="detail-aside">
+        <span class="h">引线 03.A</span>
+        <p>平台对外暴露 <span style="color:var(--brass)">16 个 MCP 工具</span>,分 5 个能力组。每个都是带结构化 I/O 的轻量 REST 包装,既支持人工 CLI 调用,也支持 Agent 调用。</p>
+        <p>没有黑魔法,没有框架偏见,没有锁定。<span style="color:var(--phosphor)">只有数据 + 状态流转。</span></p>
+        <p style="color:var(--faded)">能力组 04 当前为内测(预计 2026 Q3 公开发布)。</p>
+      </aside>
+
+      <div class="cap-list">
+        <a href="/components" class="cap callout">
+          <div class="id">G.01</div>
+          <div class="body">
+            <h4>组件登记 Component Registry</h4>
+            <p>组件增删改查、版本历史、按 layer / category / asset 过滤、递归依赖树。</p>
+          </div>
+          <div class="tag ok">稳定</div>
+        </a>
+        <a href="/feedbacks" class="cap">
+          <div class="id">G.02</div>
+          <div class="body">
+            <h4>反馈循环 Feedback Loop</h4>
+            <p>Bug / 需求 / 问题登记,带严重度、报告人、GitHub Issue 关联、决策审计链。</p>
+          </div>
+          <div class="tag ok">稳定</div>
+        </a>
+        <a href="/deployments" class="cap">
+          <div class="id">G.03</div>
+          <div class="body">
+            <h4>部署地图 Deployment Map</h4>
+            <p>登记 host × env × component,实时部署时间线,按主机聚合。</p>
+          </div>
+          <div class="tag ok">稳定</div>
+        </a>
+        <div class="cap">
+          <div class="id">G.04</div>
+          <div class="body">
+            <h4>健康监控 Health Monitor <span class="mono" style="color:var(--faded);margin-left:0.4em">5 维度</span></h4>
+            <p>组件覆盖、分层平衡、反馈速率、部署新鲜度、资产率。</p>
+          </div>
+          <div class="tag warn">测试中</div>
+        </div>
+        <a href="/requirements" class="cap">
+          <div class="id">G.05</div>
+          <div class="body">
+            <h4>需求追溯 Requirement Traceability</h4>
+            <p>REQ → 能力 → 组件 反向图,在发布前捕获冲突和缺口。</p>
+          </div>
+          <div class="tag warn">测试中</div>
+        </a>
+        <div class="cap">
+          <div class="id">G.06</div>
+          <div class="body">
+            <h4>资产决策引擎 Asset Decision Engine</h4>
+            <p>反馈堆积时:优化 / 新建 / 保留 / 重新审视。决策有记录,不会丢。</p>
+          </div>
+          <div class="tag crit">草案</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================== SECTION 04 · SECTION =================== -->
+  <section class="section">
+    <div class="sec-mark">
+      <span class="dot">D</span>
+      <span class="lbl">第 4 节</span>
+      <span class="leader"></span>
+      <span class="typ">剖面图 SECTION · 反馈循环</span>
+      <span class="num">第 4/5 张</span>
+    </div>
+
+    <div class="loop-wrap">
+      <div class="loop-aside">
+        <span class="quote-mark">"</span>
+        <p>这个平台不是一个登记簿。<strong>它是一个反馈循环</strong> —— 每个被复用的组件都被观察,每次观察都变成一个决策,每个决策都更新登记簿。</p>
+        <p>在循环中活不下去的组件被分叉;长大了的被重新打版本;腐朽了的被归档。</p>
+        <p style="color:var(--faded);font-size:0.92em">这是大部分"组件库"会跳过的那一步。我们不跳。</p>
+      </div>
+
+      <div class="loop-svg">
+        <svg viewBox="0 0 400 320" fill="none" stroke="currentColor" style="color:var(--bone)" class="loop-anim">
+          <!-- 4 nodes in cycle -->
+          <!-- Node 1: REQ -->
+          <g>
+            <rect x="30" y="100" width="80" height="55" stroke-width="1.4"/>
+            <text x="70" y="125" text-anchor="middle" fill="var(--bone)" stroke="none" font-family="JetBrains Mono" font-size="11" font-weight="600" letter-spacing="2">REQ</text>
+            <text x="70" y="141" text-anchor="middle" fill="var(--faded)" stroke="none" font-family="JetBrains Mono" font-size="8">需求</text>
+          </g>
+          <!-- Node 2: USE -->
+          <g>
+            <rect x="160" y="30" width="80" height="55" stroke-width="1.4"/>
+            <text x="200" y="55" text-anchor="middle" fill="var(--bone)" stroke="none" font-family="JetBrains Mono" font-size="11" font-weight="600" letter-spacing="2">USE</text>
+            <text x="200" y="71" text-anchor="middle" fill="var(--faded)" stroke="none" font-family="JetBrains Mono" font-size="8">复用</text>
+          </g>
+          <!-- Node 3: FEEDBACK -->
+          <g>
+            <rect x="290" y="100" width="80" height="55" stroke-width="1.4"/>
+            <text x="330" y="125" text-anchor="middle" fill="var(--bone)" stroke="none" font-family="JetBrains Mono" font-size="11" font-weight="600" letter-spacing="2">FEED</text>
+            <text x="330" y="141" text-anchor="middle" fill="var(--faded)" stroke="none" font-family="JetBrains Mono" font-size="8">反馈</text>
+          </g>
+          <!-- Node 4: DECISION -->
+          <g>
+            <rect x="160" y="170" width="80" height="55" stroke-width="1.4" stroke="var(--brass)"/>
+            <text x="200" y="195" text-anchor="middle" fill="var(--brass)" stroke="none" font-family="JetBrains Mono" font-size="11" font-weight="600" letter-spacing="2">DECIDE</text>
+            <text x="200" y="211" text-anchor="middle" fill="var(--faded)" stroke="none" font-family="JetBrains Mono" font-size="8">决策</text>
+          </g>
+          <!-- arrows -->
+          <g stroke-width="1.2" marker-end="url(#arr)">
+            <path d="M 110 115 L 160 65"/>
+            <path d="M 240 55 L 290 115"/>
+            <path d="M 330 155 L 240 200"/>
+            <path d="M 160 200 L 110 145"/>
+          </g>
+          <!-- center -->
+          <g>
+            <circle cx="200" cy="128" r="20" stroke="var(--phosphor)" stroke-width="1" fill="var(--ink)"/>
+            <text x="200" y="132" text-anchor="middle" fill="var(--phosphor)" stroke="none" font-family="JetBrains Mono" font-size="9" font-weight="700">LOOP</text>
+          </g>
+          <!-- decision branches -->
+          <g stroke="var(--brass)" stroke-width="0.8" stroke-dasharray="3 3">
+            <line x1="200" y1="225" x2="130" y2="270"/>
+            <line x1="200" y1="225" x2="200" y2="270"/>
+            <line x1="200" y1="225" x2="270" y2="270"/>
+          </g>
+          <g fill="var(--faded)" stroke="none" font-family="JetBrains Mono" font-size="8.5">
+            <text x="130" y="284" text-anchor="middle">OPTIMIZE</text>
+            <text x="200" y="284" text-anchor="middle">KEEP</text>
+            <text x="270" y="284" text-anchor="middle">FORK_NEW</text>
+          </g>
+          <!-- arrowhead -->
+          <defs>
+            <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--bone)"/>
+            </marker>
+          </defs>
+          <!-- tick marks -->
+          <g stroke="var(--blueprint-2)" stroke-width="0.5">
+            <line x1="20" y1="14" x2="380" y2="14" stroke-dasharray="2 4"/>
+            <line x1="20" y1="300" x2="380" y2="300" stroke-dasharray="2 4"/>
+          </g>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================== SECTION 05 · SCHEDULE =================== -->
+  <section class="section">
+    <div class="sec-mark">
+      <span class="dot">E</span>
+      <span class="lbl">第 5 节</span>
+      <span class="leader"></span>
+      <span class="typ">运营表 SCHEDULE · 实时数据</span>
+      <span class="num">第 5/5 张</span>
+    </div>
+
+    <p class="mono" style="margin-bottom:1.5rem;max-width:60ch;color:var(--bone-dim);letter-spacing:0.04em;font-size:11.5px;text-transform:none">
+      平台背后的真实数字。每 60 秒从生产环境 REST API 拉取,无营销成分——和内部团队看到的同一份仪表盘。
+    </p>
+
+    <!-- Stats strip with dimension lines -->
+    <div class="stat-strip" style="margin-bottom:2rem">
+      <div class="stat">
+        <div class="lbl">组件 COMPONENTS</div>
+        <div class="val">{{ total_components }}</div>
+        <div class="delta">{{ by_layer.get('L0_infrastructure', 0) + by_layer.get('L1_platform', 0) + by_layer.get('L2_capability', 0) + by_layer.get('L3_application', 0) }} 项已分层</div>
+        <div class="dim-line"><span>0</span><span class="bar"></span><span>{{ total_components }}</span></div>
+      </div>
+      <div class="stat">
+        <div class="lbl">反馈 FEEDBACKS</div>
+        <div class="val">{{ total_feedbacks }}</div>
+        <div class="delta warn">● 闭环驱动</div>
+        <div class="dim-line"><span>0</span><span class="bar"></span><span>{{ total_feedbacks }}</span></div>
+      </div>
+      <div class="stat">
+        <div class="lbl">部署 DEPLOYMENTS</div>
+        <div class="val">{{ total_deployments }}</div>
+        <div class="delta">● 持续登记中</div>
+        <div class="dim-line"><span>0</span><span class="bar"></span><span>{{ total_deployments }}</span></div>
+      </div>
+      <div class="stat">
+        <div class="lbl">资产率 ASSET</div>
+        <div class="val">{{ (assets_count / total_components * 100) | round(0, 'floor') | int if total_components else 0 }}<span class="u">%</span></div>
+        <div class="delta warn">{{ assets_count }} / {{ total_components }} 真资产</div>
+        <div class="dim-line"><span>0%</span><span class="bar"></span><span>100%</span></div>
+      </div>
+      <div class="stat">
+        <div class="lbl">MCP 工具</div>
+        <div class="val">16</div>
+        <div class="delta">● 5 个能力组</div>
+        <div class="dim-line"><span>0</span><span class="bar"></span><span>16</span></div>
+      </div>
+    </div>
+
+    <!-- Operations schedule -->
+    <div class="schedule">
+      <div class="sched-head">
+        <div>时间戳 · UTC+8</div>
+        <div>事件 EVENT</div>
+        <div>组件 / 目标</div>
+        <div>状态</div>
+        <div>操作者</div>
+        <div>章节</div>
+      </div>
+      {% set ns = namespace(rows=[]) %}
+      {% for fb in recent_feedbacks[:3] %}
+        {% set _ = ns.rows.append(('fb', fb)) %}
+      {% endfor %}
+      {% for dep in recent_deployments[:3] %}
+        {% set _ = ns.rows.append(('dep', dep)) %}
+      {% endfor %}
+      {% if not ns.rows %}
+        <div class="sched-row" style="color:var(--faded);font-style:italic">
+          <div>—</div><div>暂无活动</div><div>用 <code style="background:transparent;color:var(--phosphor);padding:0">arch feedback create</code> 或 GitHub Action 登记</div><div>—</div><div>—</div><div>—</div>
+        </div>
+      {% endif %}
+      {% for kind, item in ns.rows[:6] %}
+        {% if kind == 'fb' %}
+        <a href="/feedbacks/{{ item.id }}" class="sched-link"><div class="sched-row">
+          <div class="ts">{{ item.created_at | format_dt if item.created_at else item.deployed_at | format_dt if item.deployed_at else '—' }}</div>
+          <div>feedback.create</div>
+          <div class="id">{{ item.id }}</div>
+          <div class="{% if item.status == 'open' or item.status == 'new' %}warn{% else %}ok{% endif %}">● {{ item.status | status_zh if item.status else '记录' }}</div>
+          <div>{{ item.reporter or '—' }}</div>
+          <div>3/5</div>
+        </div></a>
+        {% else %}
+        <a href="/deployments" class="sched-link"><div class="sched-row">
+          <div class="ts">{{ item.deployed_at | format_dt if item.deployed_at else '—' }}</div>
+          <div>deployment.register</div>
+          <div class="id">{{ item.host }}{% if item.component %} · {{ item.component }}{% endif %}</div>
+          <div class="ok">● 已登记</div>
+          <div>{{ item.env or '—' }}</div>
+          <div>5/5</div>
+        </div></a>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- =================== TITLE BLOCK (SIGNATURE) =================== -->
+  <div class="titleblock">
+    <div class="tb-cell">
+      <span class="h">项目 PROJECT</span>
+      <span class="v big">架构平台</span>
+    </div>
+    <div class="tb-cell">
+      <span class="h">绘制 DRAWN BY</span>
+      <span class="v">小敏 · Claude Code</span>
+    </div>
+    <div class="tb-cell">
+      <span class="h">审核 REVIEWED BY</span>
+      <span class="v">黄谦敏</span>
+    </div>
+    <div class="tb-cell">
+      <span class="h">日期 · 2026-06-24</span>
+      <span class="v">第 2 版 · 重新设计</span>
+    </div>
+    <div class="tb-cell sheet">
+      <span class="h">图号 SHEET</span>
+      <span class="v">A-001 / 05</span>
+    </div>
+  </div>
+
+  <div class="revstrip">
+    <div class="row current">
+      <div><span class="h">第 2 版</span></div>
+      <div><span class="h">说明</span><span class="v">重新设计 v2 — 工程图纸隐喻,5 段编排,MCP 优先</span></div>
+      <div><span class="h">日期</span><span class="v">2026-06-24</span></div>
+    </div>
+    <div class="row">
+      <div><span class="h">第 1 版</span></div>
+      <div><span class="h">说明</span><span class="v">首发版本 — PicoCSS 卡片,9 个组件</span></div>
+      <div><span class="h">日期</span><span class="v">2026-06-20</span></div>
+    </div>
+  </div>
+
+  <div class="foot-line">
+    <span>© 2026 · <a href="https://github.com/AndyWongWithAI/Architecture-Platform" target="_blank" rel="noopener">GitHub</a> · <a href="/docs">API 文档</a> · <a href="/healthz">健康检查</a> · <a href="/feedbacks">反馈</a></span>
+    <span>图纸 A-001 / 05 完</span>
+  </div>
+
+</div>
+
+<script>
+// ===== Copy buttons =====
+(function initCopy(){
+  const toast = document.createElement('div');
+  toast.className = 'copy-toast';
+  toast.textContent = '已复制 ✓';
+  document.body.appendChild(toast);
+
+  document.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.preventDefault();
+      e.stopPropagation();
+      const text = btn.dataset.copy;
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch (err) {
+        // Fallback for older browsers / non-secure contexts
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); } catch (_) {}
+        ta.remove();
+      }
+      btn.classList.add('copied');
+      btn.textContent = '已复制';
+      toast.classList.add('show');
+      setTimeout(() => {
+        btn.classList.remove('copied');
+        btn.textContent = '复制';
+      }, 1800);
+      setTimeout(() => toast.classList.remove('show'), 1800);
+    });
+  });
+})();
+
+// ===== Keyboard ? for help =====
+document.addEventListener('keydown', e => {
+  if (e.key === '?' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    const isInput = ['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName);
+    if (isInput) return;
+    console.log('%c架构平台 · 图号 A-001', 'font: 700 14px/1.5 monospace; color: #D4A857;');
+    console.log('%c公网门户 · arch.intelab.cn', 'font: 12px/1.5 monospace; color: #E8DCC4;');
+    console.log('%c4 入口 · 16 MCP 工具 · 5 维健康检查 · 反馈循环', 'font: 11px/1.5 monospace; color: #8A8478;');
+  }
+});
+
+// ===== Live timestamp =====
+(function tick(){
+  const el = document.querySelector('.sheet-head .r span:first-child');
+  if (!el) return;
+  const d = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  el.textContent = `日期 ${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+})();
+
+// ===== Track outbound clicks (for analytics later) =====
+document.addEventListener('click', e => {
+  const a = e.target.closest('a');
+  if (!a) return;
+  const href = a.getAttribute('href') || '';
+  if (href.startsWith('http')) {
+    console.log('[outbound]', a.textContent.trim().slice(0, 40), '→', href);
+  }
+});
+</script>
+
+</body>
+</html>
