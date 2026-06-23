@@ -355,3 +355,40 @@ class DoubtCycleOut(DoubtCycleCreate, ORMBase):
     created_at: datetime
     stopped_at: Optional[datetime] = None
     findings: List[DoubtFindingOut] = []
+
+
+# ===== Literature 知识资产(REQ-7c4bcb32,2026-06-23)=====
+
+class LiteratureBase(BaseModel):
+    title: str = Field(..., min_length=1, max_length=500)
+    authors: Optional[str] = Field(None, max_length=500)
+    url: str = Field(..., min_length=1, max_length=2000)
+    tags: List[str] = []
+    summary: Optional[str] = None
+    source: Optional[str] = Field(None, max_length=200)
+    added_by: Optional[str] = Field(None, max_length=100)
+
+
+class LiteratureCreate(LiteratureBase):
+    pass
+
+
+class LiteratureUpdate(BaseModel):
+    """部分更新(对齐 FeedbackUpdate 风格)"""
+    title: Optional[str] = Field(None, min_length=1, max_length=500)
+    authors: Optional[str] = Field(None, max_length=500)
+    url: Optional[str] = Field(None, min_length=1, max_length=2000)
+    tags: Optional[List[str]] = None
+    summary: Optional[str] = None
+    source: Optional[str] = Field(None, max_length=200)
+
+
+class LiteratureOut(LiteratureBase, ORMBase):
+    id: str
+    added_at: datetime
+    is_archived: bool = False
+
+
+class LiteratureList(BaseModel):
+    items: List[LiteratureOut]
+    total: int

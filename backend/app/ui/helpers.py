@@ -117,6 +117,26 @@ def distribution_form_label(form: Optional[str]) -> str:
 
 # ——— FB-A 修复:enum 中英文映射 ———
 
+# Literature tag 颜色(基于 tag 字符串 hash,稳定 → 同一 tag 同一颜色)
+LIT_TAG_COLORS = [
+    "pico-color-blue-550",
+    "pico-color-green-550",
+    "pico-color-amber-550",
+    "pico-color-red-550",
+    "pico-color-purple-550",
+    "pico-color-cyan-550",
+    "pico-color-pink-550",
+    "pico-color-orange-500",
+]
+
+
+def lit_tag_color(tag: Optional[str]) -> str:
+    """Literature tag → PicoCSS 颜色(确定性 hash → 同 tag 同颜色)"""
+    if not tag:
+        return ""
+    return LIT_TAG_COLORS[hash(tag) % len(LIT_TAG_COLORS)]
+
+
 LAYER_ZH = {
     "L0_infrastructure": "L0 基础设施",
     "L1_platform": "L1 平台",
@@ -250,3 +270,5 @@ def register_filters(env):
     env.filters["req_priority_zh"] = req_priority_zh
     env.filters["req_type_zh"] = req_type_zh
     env.filters["req_status_zh"] = req_status_zh
+    # Literature(REQ-7c4bcb32,2026-06-23)
+    env.filters["lit_tag_color"] = lit_tag_color

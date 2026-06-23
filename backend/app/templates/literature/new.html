@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}登记文献{% endblock %}
+{% block content %}
+<article>
+    <header>
+        <h1>📚 登记新文献</h1>
+        <p><a href="/literature">← 返回列表</a></p>
+    </header>
+
+    <form method="post" action="/literature/create">
+        <label>
+            <span>标题(必填)</span>
+            <input type="text" name="title" required minlength="1" maxlength="500"
+                   placeholder="例:MapReduce: Simplified Data Processing on Large Clusters">
+        </label>
+
+        <label>
+            <span>URL(必填)</span>
+            <input type="url" name="url" required minlength="1" maxlength="2000"
+                   placeholder="https://...">
+        </label>
+
+        <label>
+            <span>作者</span>
+            <input type="text" name="authors" maxlength="500"
+                   placeholder="Jeffrey Dean, Sanjay Ghemawat">
+        </label>
+
+        <label>
+            <span>摘要</span>
+            <textarea name="summary" rows="4"
+                      placeholder="这篇文献讲什么、为什么重要、与平台/架构的关联..."></textarea>
+        </label>
+
+        <label>
+            <span>来源(可选)</span>
+            <input type="text" name="source" maxlength="200"
+                   placeholder="manually added / imported from ...">
+        </label>
+
+        <label>
+            <span>标签(逗号分隔)</span>
+            <input type="text" name="tags" placeholder="distributed, storage, batch">
+        </label>
+
+        <button type="submit">登记</button>
+        <a href="/literature" role="button" class="secondary">取消</a>
+    </form>
+</article>
+{% endblock %}

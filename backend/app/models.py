@@ -331,3 +331,22 @@ class DoubtFinding(Base):
     created_at = Column(DateTime, default=now_utc, nullable=False)
 
     cycle = relationship("DoubtCycle", back_populates="findings")
+
+
+# ===== Literature 知识资产(REQ-7c4bcb32,2026-06-23)=====
+# 平台首例「知识资产」实体 — 不挂在 component 上(component_id 可空)
+# 用途:架构文献/论文收集 — 人工登记或从外部导入
+class Literature(Base):
+    __tablename__ = "literatures"
+
+    id = Column(String(36), primary_key=True, default=gen_uuid)
+    title = Column(String(500), nullable=False, index=True)
+    authors = Column(String(500), nullable=True)
+    url = Column(String(2000), nullable=False)
+    tags = Column(JSON, default=list)  # ["distributed", "storage", ...]
+    summary = Column(Text, nullable=True)
+    source = Column(String(200), nullable=True)  # "manually added" / "imported from ..."
+    added_at = Column(DateTime, default=now_utc, nullable=False)
+    added_by = Column(String(100), nullable=True)
+    # 软删除独立 bool(对齐 Requirement.is_archived,2026-06-23)
+    is_archived = Column(Boolean, default=False, nullable=False)

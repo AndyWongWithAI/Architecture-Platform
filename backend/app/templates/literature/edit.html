@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}编辑文献 · {{ lit.title }}{% endblock %}
+{% block content %}
+<article>
+    <header>
+        <h1>✏️ 编辑文献</h1>
+        <p>
+            <a href="/literature/{{ lit.id }}">← 返回详情</a>
+            · <small><code>{{ lit.id[:8] }}</code></small>
+        </p>
+    </header>
+
+    <form method="post" action="/literature/{{ lit.id }}/edit">
+        <label>
+            <span>标题</span>
+            <input type="text" name="title" required minlength="1" maxlength="500"
+                   value="{{ lit.title }}">
+        </label>
+
+        <label>
+            <span>URL</span>
+            <input type="url" name="url" required minlength="1" maxlength="2000"
+                   value="{{ lit.url }}">
+        </label>
+
+        <label>
+            <span>作者</span>
+            <input type="text" name="authors" maxlength="500"
+                   value="{{ lit.authors or '' }}">
+        </label>
+
+        <label>
+            <span>摘要</span>
+            <textarea name="summary" rows="4">{{ lit.summary or '' }}</textarea>
+        </label>
+
+        <label>
+            <span>来源</span>
+            <input type="text" name="source" maxlength="200"
+                   value="{{ lit.source or '' }}">
+        </label>
+
+        <label>
+            <span>标签(逗号分隔)</span>
+            <input type="text" name="tags"
+                   value="{{ lit.tags_csv or '' }}"
+                   placeholder="distributed, storage, batch">
+        </label>
+
+        <button type="submit">保存修改</button>
+        <a href="/literature/{{ lit.id }}" role="button" class="secondary">取消</a>
+    </form>
+</article>
+{% endblock %}
