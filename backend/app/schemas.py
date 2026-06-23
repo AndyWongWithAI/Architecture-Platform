@@ -78,6 +78,9 @@ class ComponentUpdate(BaseModel):
     sub_layer: Optional[str] = Field(None, pattern=r"^(orchestration|normal)$")
     cross_cutting: Optional[bool] = None
     runtime_dependency: Optional[List[ComposedOfEntry]] = None
+    # FB-38f2024f 续:补 atomic 字段(否则 PATCH composed_of 时业务规则
+    # 永远看到旧 atomic=True → "atomic=true requires composed_of to be empty" 422)
+    atomic: Optional[bool] = None
 
 
 class ComponentOut(ComponentBase, ORMBase):
