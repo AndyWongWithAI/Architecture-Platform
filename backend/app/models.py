@@ -106,6 +106,7 @@ class RequirementStatus(str, enum.Enum):
     in_progress = "in_progress"
     implemented = "implemented"
     verified = "verified"
+    complete = "complete"
     rejected = "rejected"
     cancelled = "cancelled"
 
