@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}审计详情{% endblock %}
+{% block content %}
+<article>
+    <header>
+        <div class="grid">
+            <h1 style="grid-column: span 2;">🛡️ Audit Run 详情</h1>
+            <span class="contrast"><small>{{ run.id }}</small></span>
+        </div>
+        <p>
+            <a href="/audit" role="button" class="secondary outline">← 返回列表</a>
+        </p>
+    </header>
+
+    <!-- Summary -->
+    <h4>📊 概览</h4>
+    <div class="grid">
+        <article>
+            <header><strong>scope</strong></header>
+            <code>{{ run.scope }}</code>
+            <small class="secondary">扫描范围</small>
+        </article>
+        <article>
+            <header><strong>gate</strong></header>
+            <code>{{ run.gate }}</code>
+            <small class="secondary">严格度</small>
+        </article>
+        <article>
+            <header><strong>severity_min</strong></header>
+            <code>{{ run.severity_min }}</code>
+            <small class="secondary">最低上报阈值</small>
+        </article>
+        <article>
+            <header><strong>总数</strong></header>
+            <h2>{{ run.total }}</h2>
+        </article>
+        <article>
+            <header><strong class="pico-color-red-650">blocker</strong></header>
+            <h2 class="pico-color-red-650">{{ run.blocker_count }}</h2>
+        </article>
+        <article>
+            <header><strong class="pico-color-amber-450">warn</strong></header>
+            <h2 class="pico-color-amber-450">{{ run.warn_count }}</h2>
+        </article>
+        <article>
+            <header><strong class="pico-color-blue-550">info</strong></header>
+            <h2 class="pico-color-blue-550">{{ run.info_count }}</h2>
+        </article>
+        <article>
+            <header><strong>状态</strong></header>
+            {% if run.status == 'completed' %}
+                <span class="pico-color-green-550"><strong>✅ {{ run.status }}</strong></span>
+            {% elif run.status == 'failed' %}
+                <span class="pico-color-red-650"><strong>❌ {{ run.status }}</strong></span>
+            {% else %}
+                <span class="pico-color-blue-550"><strong>⏳ {{ run.status }}</strong></span>
+            {% endif %}
+        </article>
+    </div>
+
+    <p>
+        <small class="secondary">
+            started: {{ run.started_at | format_dt }}
+            {% if run.finished_at %} · finished: {{ run.finished_at | format_dt }}{% endif %}
+            {% if run.scanner_ts %} · scanner_ts: {{ run.scanner_ts }}{% endif %}
+        </small>
+    </p>
+
+    {% if run.error_message %}
+    <article>
+        <header><strong>⚠️ 错误信息</strong></header>
+        <pre><code>{{ run.error_message }}</code></pre>
+    </article>
+    {% endif %}
+</article>
+
+<!-- Findings 按 9 原则分组 -->
+<h3>🔎 Findings({{ findings | length }} 条 · 按原则分组)</h3>
+
+{% if findings %}
+{% for principle in principle_order %}
+<article>
+    <header>
+        <strong>{{ principle }}</strong>
+        <small class="secondary">({{ grouped[principle] | length }} 条)</small>
+    </header>
+    <figure>
+        <table role="grid">
+            <thead>
+                <tr>
+                    <th style="width: 90px;">severity</th>
+                    <th style="width: 160px;">check</th>
+                    <th style="width: 100px;">scope</th>
+                    <th>target / detail</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for f in grouped[principle] %}
+                <tr>
+                    <td>
+                        <span class="badge {{ f.severity | audit_severity_color }}">
+                            {{ f.severity | audit_severity_zh }}
+                        </span>
+                    </td>
+                    <td><code>{{ f.check }}</code></td>
+                    <td>{% if f.scope %}<code>{{ f.scope }}</code>{% else %}<span class="secondary">-</span>{% endif %}</td>
+                    <td>
+                        {% if f.target %}
+                            <code>{{ f.target }}</code>
+                            {% if f.detail %}<br><small>{{ f.detail }}</small>{% endif %}
+                        {% elif f.detail %}
+                            <small>{{ f.detail }}</small>
+                        {% else %}
+                            <span class="secondary">-</span>
+                        {% endif %}
+                        {% if f.fingerprint %}
+                            <br><small class="secondary">fp: <code>{{ f.fingerprint[:12] }}</code></small>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </figure>
+</article>
+{% endfor %}
+{% else %}
+<article>
+    <p><em>✅ 本次扫描无 finding(0 blocker / 0 warn / 0 info)。</em></p>
+</article>
+{% endif %}
+
+<hr>
+<p>
+    <small>
+        💡 原则变更:本次扫描对应的 9 原则见
+        <a href="https://github.com/AndyWongWithAI/Architecture-Platform/blob/main/CLAUDE.md" target="_blank" rel="noopener">CLAUDE.md</a>
+    </small>
+</p>
+{% endblock %}

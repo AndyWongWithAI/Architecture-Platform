@@ -1054,3 +1054,71 @@ async def literature_edit_submit(
             status_code=e.status_code,
         )
     return RedirectResponse(f"/literature/{lit_id}", status_code=303)
+
+
+# ===== Audit Module(REQ-7328c640, 2026-06-23)=====
+# 每日 04:00 cron → scan.py → POST /api/v1/audit/runs → 这里只读展示
+
+
+@router.get("/audit", response_class=HTMLResponse)
+async def audit_list(
+    request: Request,
+    status: Optional[str] = None,
+    severity_min: Optional[str] = None,
+):
+    """audit run 列表(分页 + 过滤)
+
+    过滤:
+      - status: running / completed / failed
+      - severity_min: blocker / warn / info(对应 summary 计数 > 0)
+    """
+    params = {"limit": 100}
+    if status:
+        params["status"] = status
+    if severity_min:
+        params["severity_min"] = severity_min
+    data = await _safe_get("/api/v1/audit/runs", params, default={"items": [], "total": 0})
+    return templates.TemplateResponse(
+        request,
+        "audit/list.html",
+        {
+            "items": data.get("items", []),
+            "total": data.get("total", 0),
+            "filters": {"status": status, "severity_min": severity_min},
+        },
+    )
+
+
+@router.get("/audit/{run_id}", response_class=HTMLResponse)
+async def audit_detail(request: Request, run_id: str):
+    """audit run 详情页
+
+    布局:
+      1. 顶部 summary 卡片(scope / gate / total / blocker / warn / info / 时间)
+      2. 按 9 原则分组的 finding 表(severity 色 badge)
+    """
+    run = await _safe_get(f"/api/v1/audit/runs/{run_id}")
+    if not run:
+        raise HTTPException(status_code=404, detail=f"audit run {run_id} 不存在")
+
+    findings = run.get("findings", []) or []
+    # 按 principle 分组(顺序保留首次出现)
+    grouped: dict[str, list] = {}
+    order: list[str] = []
+    for f in findings:
+        p = f.get("principle") or "(未分类)"
+        if p not in grouped:
+            grouped[p] = []
+            order.append(p)
+        grouped[p].append(f)
+
+    return templates.TemplateResponse(
+        request,
+        "audit/detail.html",
+        {
+            "run": run,
+            "findings": findings,
+            "grouped": grouped,
+            "principle_order": order,
+        },
+    )
