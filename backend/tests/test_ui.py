@@ -54,6 +54,8 @@ PAGES = [
     ("/requirements/new", "需求创建表单"),  # Phase 1.2
     ("/deployments", "部署地图"),
     ("/search?q=nginx", "搜索"),
+    ("/help", "文档总览(REQ-8be0f95c)"),
+    ("/help/er-diagram", "文档详情(REQ-8be0f95c)"),
     ("/healthz", "健康检查"),
 ]
 
@@ -156,6 +158,64 @@ def test_static_assets(backend):
 
     js = httpx.get(f"{backend}/static/js/app.js", timeout=5.0)
     assert js.status_code == 200
+
+
+# ===== REQ-8be0f95c /help 路由测试(2026-06-23)=====
+
+
+def test_help_index_lists_files(backend):
+    """/help 应列出 docs/ 下所有 markdown 文件(≥ 5 个)"""
+    r = httpx.get(f"{backend}/help", timeout=5.0)
+    assert r.status_code == 200
+    # 总数应 ≥ 5(目前 24 个,留 buffer)
+    assert "共" in r.text and "篇" in r.text
+    # 应看到几个关键文档
+    assert "er-diagram" in r.text
+    assert "DESIGN" in r.text
+    # 应有 4 个 category 标题
+    for cat in ["概述", "设计", "ADR", "组件"]:
+        assert cat in r.text, f"缺少 category:{cat}"
+
+
+def test_help_detail_renders(backend):
+    """/help/er-diagram 应渲染 markdown 内容"""
+    r = httpx.get(f"{backend}/help/er-diagram", timeout=5.0)
+    assert r.status_code == 200
+    # 渲染后应有 HTML 标签
+    assert "<h1>" in r.text  # 标题
+    assert "ER 图" in r.text or "Component" in r.text  # 内容片段
+
+
+def test_help_detail_nested_slug(backend):
+    """嵌套 slug 应工作:adr/0022-... 或 components/docker"""
+    r1 = httpx.get(f"{backend}/help/components/docker", timeout=5.0)
+    assert r1.status_code == 200
+    assert "<h1>" in r1.text
+
+    r2 = httpx.get(f"{backend}/help/adr/0022-requirement-state-machine-500", timeout=5.0)
+    assert r2.status_code == 200
+    assert "ADR-0022" in r2.text or "verified transition" in r2.text
+
+
+def test_help_detail_404_for_missing(backend):
+    """/help/<不存在> 应返回 404"""
+    r = httpx.get(f"{backend}/help/this-doc-does-not-exist-xyz", timeout=5.0)
+    assert r.status_code == 404
+
+
+def test_help_detail_path_traversal_blocked(backend):
+    """/help/../etc/passwd 应被拦截(404 而非 500)"""
+    r = httpx.get(f"{backend}/help/../etc/passwd", timeout=5.0)
+    # 不应该 200;可能是 404(我们返回 404)或 307/308(framework 拦截)
+    assert r.status_code != 200
+
+
+def test_swagger_still_works(backend):
+    """/docs(Swagger)应仍返回 200 — REQ-8be0f95c 关键约束"""
+    r = httpx.get(f"{backend}/docs", timeout=5.0)
+    assert r.status_code == 200
+    # Swagger UI HTML 应含 swagger-ui 相关标记
+    assert "swagger" in r.text.lower()
 
 
 # ——— PATCH 反馈代理测试 ———

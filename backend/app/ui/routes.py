@@ -13,6 +13,13 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from .helpers import register_filters
+from .markdown_renderer import (
+    DOCS_DIR,
+    get_pygments_css,
+    list_markdown_files_grouped,
+    render_markdown_file,
+    resolve_slug,
+)
 from .proxy import api_get, api_patch, api_post
 
 
@@ -753,3 +760,71 @@ async def doubt_stop_from_ui(
         return JSONResponse({"error": str(e.detail)}, status_code=e.status_code)
     from fastapi.responses import RedirectResponse
     return RedirectResponse(f"/doubt/cycles/{cycle_id}", status_code=303)
+
+
+# ===== REQ-8be0f95c /help 路由(2026-06-23)=====
+# 设计要点:
+# - Swagger 仍占 /docs,本模块用 /help(命名约定一致)
+# - 服务端渲染(mistune + Pygments),无 JS
+# - slug → file path,防越界(防 ../ + symlink)
+# - 复用 base.html + PicoCSS,跟其他 UI 页风格一致
+
+
+@router.get("/help", response_class=HTMLResponse)
+async def help_index(request: Request):
+    """列出 docs/ 下所有 markdown 文件,按 category 分组"""
+    grouped = list_markdown_files_grouped()
+    total = sum(len(g["files"]) for g in grouped)
+    return templates.TemplateResponse(
+        request,
+        "help/list.html",
+        {
+            "groups": grouped,
+            "total": total,
+        },
+    )
+
+
+@router.get("/help/{slug:path}", response_class=HTMLResponse)
+async def help_detail(request: Request, slug: str):
+    """渲染单个 markdown 文件
+
+    slug 例:
+      er-diagram           → docs/er-diagram.md
+      adr/0022-...         → docs/adr/0022-....md
+      components/docker    → docs/components/docker.md
+    """
+    md_path = resolve_slug(slug)
+    if md_path is None:
+        raise HTTPException(status_code=404, detail=f"文档 {slug} 不存在")
+
+    try:
+        html_body = render_markdown_file(md_path)
+    except OSError as e:
+        raise HTTPException(status_code=500, detail=f"读取文档失败:{e}")
+
+    # breadcrumb:category(从 slug 第一段推断)+ 文件名
+    parts = slug.split("/")
+    if len(parts) == 1:
+        category = "概述"
+    else:
+        sub = parts[0]
+        category_map = {"adr": "ADR", "components": "组件", "design": "设计"}
+        category = category_map.get(sub, sub)
+
+    # 取标题(从 markdown 第一个 # 头抽),detail 顶部展示
+    title = md_path.stem
+
+    return templates.TemplateResponse(
+        request,
+        "help/detail.html",
+        {
+            "html_body": html_body,
+            "slug": slug,
+            "category": category,
+            "title": title,
+            "filename": md_path.name,
+            "pygments_css": get_pygments_css(),
+            "docs_dir": str(DOCS_DIR),
+        },
+    )

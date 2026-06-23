@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}文档总览{% endblock %}
+
+{% block content %}
+<hgroup>
+    <h1>文档总览</h1>
+    <p>架构平台 <code>docs/</code> 目录下的所有 markdown 文档 · 共 {{ total }} 篇</p>
+</hgroup>
+
+{% if not groups %}
+    <article>
+        <p><em>未找到任何文档(<code>docs/</code> 目录为空或不存在)</em></p>
+    </article>
+{% else %}
+    {% for group in groups %}
+        <section>
+            <h2>{{ group.category }} <small>({{ group.files | length }} 篇)</small></h2>
+            <div class="overflow-auto">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>文档</th>
+                            <th>标题</th>
+                            <th>路径</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for f in group.files %}
+                        <tr>
+                            <td>
+                                <a href="/help/{{ f.slug }}"><code>{{ f.name }}</code></a>
+                            </td>
+                            <td>{{ f.title }}</td>
+                            <td><small><code>docs/{{ f.path }}</code></small></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    {% endfor %}
+{% endif %}
+
+<hr>
+<p>
+    <small>
+        <a href="/docs" target="_blank" rel="noopener">API Swagger</a> ·
+        文档源:<code>{{ docs_dir if docs_dir else "docs/" }}</code>
+    </small>
+</p>
+{% endblock %}
