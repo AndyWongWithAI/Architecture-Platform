@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any, Optional
 
 import httpx
@@ -147,11 +148,56 @@ class ArchClient:
 
     # ——— Requirement (Phase 1) ———
 
+    # UUID v1-5 形如 xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx(36 字符,8-4-4-4-12)
+    _UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
+
+    def _resolve_req_id(self, req_id: str) -> str:
+        """短 ID 前缀 → 完整 UUID。list 表格只显示前 8 位,
+        直接拼到 URL 会 404(参见 feedback 62634495)。
+        - 完整 UUID:原样返回
+        - 前缀:遍历 list_requirements 分页查找匹配;唯一返回,多匹配或 0 匹配抛错
+        """
+        if self._UUID_RE.match(req_id):
+            return req_id
+        prefix = req_id.lower()
+        # 默认只看未归档,避免误命中已软删的同前缀记录
+        matches: list[str] = []
+        offset = 0
+        page_size = 100
+        max_pages = 20  # 上限 2000 条,够用
+        for _ in range(max_pages):
+            data = self.list_requirements(include_archived=False, limit=page_size, offset=offset)
+            items = data.get("items", [])
+            for it in items:
+                rid = it.get("id", "")
+                if rid.lower().startswith(prefix):
+                    matches.append(rid)
+                    if len(matches) > 1:
+                        # 早退,不必继续翻页
+                        break
+            total = data.get("total", len(items))
+            offset += page_size
+            if offset >= total or len(items) == 0 or len(matches) > 1:
+                break
+        if not matches:
+            raise APIError(
+                404,
+                f"未找到 ID 前缀 '{req_id}' 对应的需求(可能已归档,试试 --include-archived)",
+            )
+        if len(matches) > 1:
+            short = ", ".join(m[:8] for m in matches[:5])
+            raise APIError(
+                409,
+                f"前缀 '{req_id}' 匹配到 {len(matches)} 个需求,请用更长的前缀或完整 UUID。匹配: {short}",
+            )
+        return matches[0]
+
     def list_requirements(self, **filters) -> dict:
         return self.request("GET", "/api/v1/requirements", params=filters)
 
     def get_requirement(self, req_id: str) -> dict:
-        return self.request("GET", f"/api/v1/requirements/{req_id}")
+        full_id = self._resolve_req_id(req_id)
+        return self.request("GET", f"/api/v1/requirements/{full_id}")
 
     def create_requirement(self, component_id: str, data: dict) -> dict:
         """嵌套入口:绑 component"""
@@ -162,18 +208,22 @@ class ArchClient:
         return self.request("POST", "/api/v1/requirements", json=data)
 
     def patch_requirement(self, req_id: str, data: dict) -> dict:
-        return self.request("PATCH", f"/api/v1/requirements/{req_id}", json=data)
+        full_id = self._resolve_req_id(req_id)
+        return self.request("PATCH", f"/api/v1/requirements/{full_id}", json=data)
 
     def archive_requirement(self, req_id: str) -> dict:
-        return self.request("DELETE", f"/api/v1/requirements/{req_id}")
+        full_id = self._resolve_req_id(req_id)
+        return self.request("DELETE", f"/api/v1/requirements/{full_id}")
 
     def restore_requirement(self, req_id: str) -> dict:
-        return self.request("POST", f"/api/v1/requirements/{req_id}/restore")
+        full_id = self._resolve_req_id(req_id)
+        return self.request("POST", f"/api/v1/requirements/{full_id}/restore")
 
     def link_feedback_requirement(self, fb_id: str, req_id: str) -> dict:
+        full_id = self._resolve_req_id(req_id)
         return self.request(
             "POST", f"/api/v1/feedbacks/{fb_id}/link-requirement",
-            json={"requirement_id": req_id},
+            json={"requirement_id": full_id},
         )
 
     # ——— Doubt-Driven Development(2026-06-21 新增)———
