@@ -11,7 +11,10 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy.orm import Session
 
+from ..database import get_db
+from ..services.graph_dsl import build_component_graph
 from .helpers import register_filters
 from .markdown_renderer import (
     DOCS_DIR,
@@ -193,7 +196,11 @@ async def components_list(
 # ——— 3. 组件详情 ———
 
 @router.get("/components/{name}", response_class=HTMLResponse)
-async def component_detail(request: Request, name: str):
+async def component_detail(
+    request: Request,
+    name: str,
+    db: Session = Depends(get_db),
+):
     component = await _safe_get(f"/api/v1/components/{name}")
     if not component:
         raise HTTPException(status_code=404, detail=f"组件 {name} 不存在")
@@ -212,6 +219,10 @@ async def component_detail(request: Request, name: str):
         default={"items": []},
     )
 
+    # REQ-a77efd18:组件详情页 mermaid 架构图
+    # 直接走 DB(避免再调一次 API);build_component_graph 内部容错
+    graph_dsl = build_component_graph(name, db)
+
     return templates.TemplateResponse(
         request,
         "components/detail.html",
@@ -220,6 +231,7 @@ async def component_detail(request: Request, name: str):
             "versions": component.get("versions", []),
             "feedbacks": feedbacks.get("items", []),
             "requirements": requirements.get("items", []),
+            "graph_dsl": graph_dsl,
         },
     )
 

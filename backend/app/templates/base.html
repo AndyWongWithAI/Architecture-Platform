@@ -62,5 +62,15 @@
             <a href="/docs" target="_blank" rel="noopener">API</a>
         </small>
     </footer>
+
+    <!-- Mermaid 10(REQ-a77efd18 架构图渲染)— defer 避免阻塞渲染 -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js" defer></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof mermaid !== 'undefined') {
+                mermaid.initialize({ startOnLoad: true, theme: 'neutral', securityLevel: 'loose' });
+            }
+        });
+    </script>
 </body>
 </html>

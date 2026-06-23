@@ -57,6 +57,19 @@
     </article>
 </div>
 
+<!-- REQ-a77efd18:依赖架构图(mermaid) -->
+<section>
+    <h3>依赖架构图</h3>
+    {% if graph_dsl %}
+    <div class="mermaid">{{ graph_dsl | safe }}</div>
+    <small>
+        <em>实线 → composed_of(代码层组合);虚线 → runtime_dependency(运行时/编排依赖)。详细层级请展开 <a href="/components/{{ c.name }}/tree">依赖树</a>。</em>
+    </small>
+    {% else %}
+    <p><em>暂无依赖图(可能组件无 composed_of / runtime_dependency,或组件未找到)</em></p>
+    {% endif %}
+</section>
+
 <!-- 版本历史 -->
 <h3>版本历史</h3>
 {% if versions %}
