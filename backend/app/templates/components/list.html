@@ -8,16 +8,22 @@
     <p>{{ total }} 个组件{% if filters.q %} · 搜索 "{{ filters.q }}"{% endif %}</p>
 </hgroup>
 
-<!-- 过滤表单 -->
-<form method="get" action="/components" class="grid">
-    <select name="layer" onchange="this.form.submit()">
-        <option value="">所有层级</option>
-        <option value="L0_infrastructure" {% if filters.layer == "L0_infrastructure" %}selected{% endif %}>L0 基础设施</option>
-        <option value="L1_platform" {% if filters.layer == "L1_platform" %}selected{% endif %}>L1 平台</option>
-        <option value="L2_capability" {% if filters.layer == "L2_capability" %}selected{% endif %}>L2 能力</option>
-        <option value="L3_application" {% if filters.layer == "L3_application" %}selected{% endif %}>L3 应用</option>
-    </select>
+<!-- 层级 tab(A-1 REQ-6cce2927)+ 顶部右侧操作 -->
+<div class="list-header">
+    <div class="list-tabs">
+        {% include "_components/tabs.html" with context %}
+    </div>
+    <div class="list-actions">
+        <a href="/components/new" role="button" class="secondary">+ 新建组件</a>
+    </div>
+</div>
 
+<!-- 其他过滤(category / is_asset / q)保留为下方 select,不被 tab 替代 -->
+<form method="get" action="/components" class="grid">
+    {# tab 切换的当前值也带过去,保持状态一致 #}
+    {% if filters.layer %}
+        <input type="hidden" name="tab" value="{{ active_tab }}">
+    {% endif %}
     <select name="category" onchange="this.form.submit()">
         <option value="">所有分类</option>
         {% for cat in ["auth", "db", "cache", "queue", "log", "deploy", "monitor", "ui", "util", "other"] %}

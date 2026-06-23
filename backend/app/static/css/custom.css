@@ -112,3 +112,32 @@ table {
         width: 100%;
     }
 }
+
+/* 列表页头部布局:tab 在左,操作按钮在右(A-1 REQ-6cce2927) */
+.list-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.list-header .list-tabs {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.list-header .list-tabs nav.tabs {
+    margin-bottom: 0;
+}
+
+.list-header .list-actions {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.list-header .list-actions a[role="button"] {
+    margin: 0 0 1.25rem 0;  /* 与 tabs 下边缘对齐 */
+}

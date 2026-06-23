@@ -1,0 +1,39 @@
+{# ——— 可复用水平 tab partial ———
+   A-1 (REQ-6cce2927) 首次沉淀,A-2 需求 tab / 其他筛选视图复用。
+
+   期望 context:
+     tabs         = [{"id": "L0", "label": "L0 基础设施", "count": 5, "href_extra": "?..."}, ...]
+     active_tab   = 当前 tab id(str);与 tabs 中某项 .id 相等
+                    (兼容名 active 也支持)
+     base_url     = 切换 tab 的目标路径(如 "/components");留空则用当前请求路径
+
+   行为:
+     - 每个 tab 是 <a href="?tab=ID&其他参数">,其他 query 参数保留(分页/搜索/分类)
+     - 当前 active tab 加 class "active" + aria-selected="true"
+     - count 提供时显示数字徽章(可选)
+
+   设计原则(对齐 CLAUDE.md 一致性 + 复用 + 定位稳定性):
+     - PicoCSS 简洁下划线,不做大胆差异化
+     - 不引入新依赖 / 不引入新色 hex,用 --pico-* 变量
+     - 视觉细节在 static/css/tabs.css 集中维护(避免散落)
+#}
+
+{% set _active = active_tab | default(active | default(''), true) %}
+{% set _base = base_url | default(request.url.path, true) %}
+<nav role="tablist" class="tabs tablist" aria-label="层级切换">
+  {% for t in tabs %}
+    {% set _is_active = (t.id == _active) %}
+    {% set _href = _base ~ "?tab=" ~ t.id ~ (t.href_extra or "") %}
+    <a role="tab"
+       href="{{ _href }}"
+       id="tab-{{ t.id }}"
+       class="tablink{% if _is_active %} active{% endif %}"
+       aria-selected="{{ 'true' if _is_active else 'false' }}"
+       aria-controls="panel-{{ t.id }}">
+      <span class="tablabel">{{ t.label }}</span>
+      {% if t.count is defined and t.count is not none %}
+        <span class="badge tabbadge" aria-label="数量 {{ t.count }}">{{ t.count }}</span>
+      {% endif %}
+    </a>
+  {% endfor %}
+</nav>
