@@ -78,17 +78,71 @@ async def index(request: Request):
 
 # ——— 2. 组件列表 ———
 
+# A-1 (REQ-6cce2927):tab 标识 → 现有 layer 取值的映射。
+# tab 是 UI 概念(短名 + 包含 all),layer 是后端 enum。
+# 后端 API 不变,只把 tab 翻译成 layer(或留空=all)。
+TAB_LAYER_MAP = {
+    "L0_infrastructure": "L0_infrastructure",
+    "L1_platform": "L1_platform",
+    "L2_capability": "L2_capability",
+    "L3_application": "L3_application",
+    "all": None,
+}
+
+
 @router.get("/components", response_class=HTMLResponse)
 async def components_list(
     request: Request,
     layer: Optional[str] = None,
+    tab: Optional[str] = None,
     category: Optional[str] = None,
     is_asset: Optional[str] = None,  # FB-K 修复(2026-06-21):改为 str,内部判断 "true"/"false",避免空字符串触发 422
     q: Optional[str] = None,
 ):
+    """组件列表:tab 分层(L0/L1/L2/L3/all)+ 下方二级过滤(category/is_asset/q)
+
+    参数优先级:
+      tab    >  layer(向下兼容老的 ?layer= 直接传值)
+      两者皆无 → active_tab="all"(默认)
+
+    tab → layer 翻译:
+      "L0_infrastructure" → "L0_infrastructure"(传给后端)
+      "all"               → None(不传 layer)
+      未知 tab 值        → 兜底为 "all"
+    """
+    # 1. tab → layer 翻译
+    active_tab = "all"
+    effective_layer = layer
+    if tab:
+        if tab in TAB_LAYER_MAP:
+            active_tab = tab
+            effective_layer = TAB_LAYER_MAP[tab]  # 可能为 None
+        else:
+            # 未知 tab:忽略,走 all
+            active_tab = "all"
+            effective_layer = None
+    elif layer and layer in TAB_LAYER_MAP:
+        # 老 ?layer= 链接直接进来:把它映射回对应的 tab,UI 视觉一致
+        active_tab = layer
+
+    # 2. 用一次 SQL COUNT GROUP BY 拿各层级组件数(对 all 视图用,节省 N+1)
+    all_data = await _safe_get(
+        "/api/v1/components",
+        {"limit": 200},
+        default={"items": [], "total": 0},
+    )
+    all_items = all_data.get("items", [])
+    tab_counts = {"L0_infrastructure": 0, "L1_platform": 0, "L2_capability": 0, "L3_application": 0}
+    for c in all_items:
+        layer_key = c.get("layer", "")
+        if layer_key in tab_counts:
+            tab_counts[layer_key] += 1
+    tab_counts["all"] = all_data.get("total", len(all_items))
+
+    # 3. 当前视图的实际查询
     params = {"limit": 200}
-    if layer:
-        params["layer"] = layer
+    if effective_layer:
+        params["layer"] = effective_layer
     if category:
         params["category"] = category
     # FB-K:is_asset 用字符串手动判断("true"/"false" → bool;"" / 其他 → 不过滤)
@@ -101,6 +155,15 @@ async def components_list(
 
     data = await _safe_get("/api/v1/components", params, default={"items": [], "total": 0})
 
+    # 4. 构造 tabs(给 partial 用),按 L0→L3→all 顺序
+    tabs = [
+        {"id": "L0_infrastructure", "label": "L0 基础设施", "count": tab_counts["L0_infrastructure"]},
+        {"id": "L1_platform", "label": "L1 平台", "count": tab_counts["L1_platform"]},
+        {"id": "L2_capability", "label": "L2 能力", "count": tab_counts["L2_capability"]},
+        {"id": "L3_application", "label": "L3 应用", "count": tab_counts["L3_application"]},
+        {"id": "all", "label": "全部", "count": tab_counts["all"]},
+    ]
+
     return templates.TemplateResponse(
         request,
         "components/list.html",
@@ -108,11 +171,14 @@ async def components_list(
             "components": data.get("items", []),
             "total": data.get("total", 0),
             "filters": {
-                "layer": layer,
+                "layer": effective_layer,
                 "category": category,
                 "is_asset": is_asset,
                 "q": q,
             },
+            "tabs": tabs,
+            "active_tab": active_tab,
+            "base_url": "/components",
         },
     )
 
