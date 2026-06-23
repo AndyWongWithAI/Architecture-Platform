@@ -1,0 +1,93 @@
+/* tabs.css — 可复用水平 tab 样式
+   PicoCSS 兼容;不引入新色 hex,只用 --pico-* 变量。
+   对应 partial: backend/app/templates/_components/tabs.html
+   A-1 (REQ-6cce2927) 首次落地;A-2 需求 tab / 其他筛选视图复用。
+*/
+
+/* 容器:水平 flex,允许移动端横向滚动 */
+nav[role="tablist"].tabs,
+nav.tabs {
+    display: flex;
+    align-items: stretch;
+    gap: 0.25rem;
+    margin: 0 0 1.25rem 0;
+    padding: 0;
+    border-bottom: 1px solid var(--pico-muted-border-color);
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+/* 单个 tab:无背景,无按钮感,简洁下划线 */
+nav.tabs a[role="tab"],
+nav.tabs .tablink {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 0.95rem;
+    margin: 0;
+    border: 1px solid transparent;
+    border-bottom: 2px solid transparent;
+    border-radius: var(--pico-border-radius) var(--pico-border-radius) 0 0;
+    background: transparent;
+    color: var(--pico-muted-color);
+    text-decoration: none;
+    font-size: 0.95rem;
+    line-height: 1.2;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color 120ms ease, background-color 120ms ease, border-color 120ms ease;
+}
+
+/* hover:轻微底色变化,但不动 border(避免误以为是 active) */
+nav.tabs a[role="tab"]:hover,
+nav.tabs .tablink:hover {
+    color: var(--pico-color);
+    background: var(--pico-secondary-background);
+    text-decoration: none;
+}
+
+/* active:底部 2px 边框 + primary 色 + 加深文字 */
+nav.tabs a[role="tab"].active,
+nav.tabs .tablink.active {
+    color: var(--pico-primary);
+    border-bottom-color: var(--pico-primary);
+    background: transparent;
+    font-weight: 600;
+}
+
+nav.tabs a[role="tab"]:focus-visible,
+nav.tabs .tablink:focus-visible {
+    outline: 2px solid var(--pico-primary-focus, var(--pico-primary));
+    outline-offset: 2px;
+}
+
+/* 数字徽章:小号 badge */
+nav.tabs .tabbadge,
+nav.tabs .badge {
+    display: inline-block;
+    min-width: 1.5rem;
+    padding: 0 0.4rem;
+    border-radius: 999px;
+    background: var(--pico-secondary-background);
+    color: var(--pico-muted-color);
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1.4rem;
+    text-align: center;
+}
+
+nav.tabs a[role="tab"].active .tabbadge,
+nav.tabs .tablink.active .badge {
+    background: var(--pico-primary-background, var(--pico-secondary-background));
+    color: var(--pico-primary);
+}
+
+/* 移动端:label 可省略,徽章保留(可选)
+   当前实现:横滑即可,不做图标替换(避免引入 icon 库) */
+@media (max-width: 600px) {
+    nav.tabs a[role="tab"],
+    nav.tabs .tablink {
+        padding: 0.5rem 0.7rem;
+        font-size: 0.9rem;
+    }
+}
