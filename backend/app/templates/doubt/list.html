@@ -1,19 +1,56 @@
 {% extends "base.html" %}
 {% block title %}Doubt Cycles{% endblock %}
 {% block content %}
-<article>
-    <header>
-        <h1>🔍 Doubt Cycles</h1>
-        <p>非平凡决策的对抗式审查记录。<a href="/doubt/new">+ 新建 cycle</a></p>
-    </header>
-    <p><small>共 {{ total }} 个 cycle</small></p>
-</article>
+<div class="arch-title">
+    <h1>Doubt Cycles</h1>
+    <div class="arch-title-meta">
+        <strong>{{ total }}</strong> 个 cycle<br>
+        <a href="/doubt/new" class="primary" style="font-size: 0.85rem;">+ 新建 cycle</a>
+    </div>
+</div>
+
+<p style="color: var(--arch-ink-2); font-size: 0.95rem;">
+    非平凡决策的对抗式审查记录。5 步法:<strong>CLAIM</strong> → <strong>EXTRACT</strong> → <strong>DOUBT</strong> → <strong>RECONCILE</strong> → <strong>STOP</strong>。
+</p>
 
 {% if items %}
-{% for cycle in items %}
-{% include "doubt/_cycle.html" %}
-{% endfor %}
+<table class="arch-table">
+    <thead>
+        <tr>
+            <th style="width: 2.5rem;">#</th>
+            <th>cycle id</th>
+            <th>verdict</th>
+            <th>进度</th>
+            <th>claim 摘要</th>
+            <th>findings</th>
+            <th>by</th>
+            <th>创建时间</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for cycle in items %}
+        <tr>
+            <td><span class="arch-row-num">{{ loop.index }}</span></td>
+            <td class="arch-td-name"><a href="/doubt/cycles/{{ cycle.id }}">{{ cycle.id[:8] }}</a></td>
+            <td>
+                {% if cycle.verdict %}
+                    <span class="arch-chip" data-tone="{% if cycle.verdict == 'pass' %}ok{% elif cycle.verdict == 'fail' %}error{% else %}warn{% endif %}">{{ cycle.verdict }}</span>
+                {% else %}
+                    <span class="arch-chip" data-tone="muted">进行中</span>
+                {% endif %}
+            </td>
+            <td><span class="arch-muted">#{{ cycle.cycle_count }}/{{ cycle.max_cycles }}</span></td>
+            <td>{{ cycle.claim[:120] }}{% if cycle.claim|length > 120 %}…{% endif %}</td>
+            <td><span class="arch-chip" data-tone="phosphor">{{ cycle.findings|length }}</span></td>
+            <td><span class="arch-muted">{{ cycle.created_by }}</span></td>
+            <td><span class="arch-muted">{{ cycle.created_at[:19] }}</span></td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
 {% else %}
-<article><p><em>暂无 doubt cycle。点上方"+ 新建 cycle"开始第一个。</em></p></article>
+<article class="arch-card" style="text-align: center;">
+    <p><em>暂无 doubt cycle。点上方"+ 新建 cycle"开始第一个。</em></p>
+</article>
 {% endif %}
 {% endblock %}

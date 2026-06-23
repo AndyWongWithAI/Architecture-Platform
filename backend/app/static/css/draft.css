@@ -1,0 +1,1155 @@
+/* =============================================================================
+ * draft.css — 架构平台子页面统一视觉层(drafting sheet 风格延续)
+ *
+ * 设计要点:
+ *   - 与 landing 共享同一气质(纸底 + 衬线 + 黄铜编号),但密度更高,
+ *     适用于后台 / 列表 / 详情 / 表单 / 看板等长内容页面。
+ *   - 保留 PicoCSS 的 form 控件、<dialog>、HTMX 行为可填性,
+ *     只替换外层 chrome(顶栏 / 页脚 / 背景 / 标题 / 表格 / 卡片 / 标签)。
+ *   - 所有色 / 间距 / 字型 / 字号走 --arch-* token,不在页面内联。
+ *
+ * 与 site.css 的关系:
+ *   - site.css:全局契约层(token + 跨页通用组件,如 breadcrumb / empty state)
+ *   - draft.css:子页面视觉层(chrome / 表格 / 卡片 / 看板 / 步骤条)
+ *   两份共存,子页面同时引两份。landing 不引 draft.css。
+ *
+ * 后续维护:
+ *   - 新子页面只需在 head 引 site.css + draft.css,模板里用 .arch-* 类即可。
+ *   - 修改 chrome = 改 draft.css 的 .arch-* 类,所有子页面统一生效。
+ * ============================================================================= */
+
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * 1. Token 层:色板 / 间距 / 字型
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+:root {
+    /* 纸底与主墨色 — 与 landing 同源 */
+    --arch-paper:      #F2EEE6;
+    --arch-card:       #FBFAF6;
+    --arch-ink:        #1A1B1F;
+    --arch-ink-2:      #5A5C66;
+    --arch-ink-3:      #8A8C95;
+
+    /* 描线:粗横线、表格内细线、列分隔 */
+    --arch-rule:       #C7C2B5;
+    --arch-rule-soft:  #DAD5C7;
+
+    /* 编号 / 重点色:暖红橙(类似黄铜印章) */
+    --arch-accent:     #C2410C;
+    --arch-accent-bg:  #FCEAD9;
+
+    /* 磷光绿(行号 / 计数) */
+    --arch-phosphor:   #4A5C3F;
+    --arch-phosphor-bg:#DDE3D2;
+
+    /* 黄铜色(标签 / 边角) */
+    --arch-brass:      #A08456;
+    --arch-brass-bg:   #EDE4D2;
+
+    /* 状态色 */
+    --arch-ok:         #15803D;
+    --arch-warn:       #B45309;
+    --arch-error:      #B91C1C;
+    --arch-info:       #1D4ED8;
+
+    /* 间距 */
+    --arch-s-1:  0.25rem;
+    --arch-s-2:  0.5rem;
+    --arch-s-3:  0.75rem;
+    --arch-s-4:  1rem;
+    --arch-s-5:  1.5rem;
+    --arch-s-6:  2rem;
+    --arch-s-7:  3rem;
+
+    /* 字号(子页面密度比 landing 高,基础字略小) */
+    --arch-fs-xs: 0.75rem;
+    --arch-fs-sm: 0.85rem;
+    --arch-fs-md: 0.95rem;
+    --arch-fs-lg: 1.1rem;
+    --arch-fs-xl: 1.4rem;
+    --arch-fs-2xl: 1.85rem;
+    --arch-fs-3xl: 2.4rem;
+}
+
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * 2. 全局覆盖:纸底、衬线、抑制 PicoCSS 的部分默认
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/* 让 PicoCSS form 控件 / table 行为不变,只换外壳 */
+body {
+    background: var(--arch-paper);
+    color: var(--arch-ink);
+    font-family: "Noto Sans SC", "Switzer", system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: var(--arch-fs-md);
+}
+
+/* 子页面主区:占满,无 container 限制(让表格可以到边) */
+main.arch-main {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: var(--arch-s-5) var(--arch-s-5) var(--arch-s-7);
+}
+
+/* 顶栏(drafting sheet 顶边一条粗线 + 大字品牌) */
+header.arch-shell-header {
+    background: var(--arch-paper);
+    border-bottom: 2px solid var(--arch-ink);
+    padding: var(--arch-s-3) 0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(6px);
+}
+
+header.arch-shell-header .arch-shell-row {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 0 var(--arch-s-5);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--arch-s-5);
+    flex-wrap: wrap;
+}
+
+header.arch-shell-header .arch-brand {
+    font-family: "Fraunces", "Noto Serif SC", Georgia, serif;
+    font-weight: 600;
+    font-size: var(--arch-fs-xl);
+    color: var(--arch-ink);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--arch-s-2);
+    letter-spacing: -0.01em;
+}
+
+header.arch-shell-header .arch-brand .arch-brand-stamp {
+    font-family: "JetBrains Mono", monospace;
+    font-size: var(--arch-fs-xs);
+    color: var(--arch-accent);
+    border: 1px solid var(--arch-accent);
+    padding: 1px 5px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+header.arch-shell-header nav.arch-shell-nav {
+    display: flex;
+    align-items: center;
+    gap: var(--arch-s-4);
+    flex-wrap: wrap;
+}
+
+header.arch-shell-header nav.arch-shell-nav a {
+    color: var(--arch-ink-2);
+    text-decoration: none;
+    font-size: var(--arch-fs-sm);
+    font-family: "Fraunces", "Noto Serif SC", Georgia, serif;
+    border-bottom: 1px solid transparent;
+    padding-bottom: 1px;
+    transition: color 120ms, border-color 120ms;
+}
+
+header.arch-shell-header nav.arch-shell-nav a:hover {
+    color: var(--arch-ink);
+    border-bottom-color: var(--arch-accent);
+}
+
+header.arch-shell-header nav.arch-shell-nav a[aria-current="page"] {
+    color: var(--arch-ink);
+    font-weight: 600;
+}
+
+header.arch-shell-header .arch-shell-search {
+    display: flex;
+    align-items: center;
+    gap: var(--arch-s-2);
+}
+
+header.arch-shell-header .arch-shell-search input {
+    margin: 0;
+    height: 2rem;
+    padding: 0 var(--arch-s-2);
+    font-size: var(--arch-fs-sm);
+    min-width: 220px;
+    background: var(--arch-card);
+    border: 1px solid var(--arch-rule);
+}
+
+/* 隐藏 PicoCSS 旧 site-header(被本 shell 替代) */
+body.arch-mode .site-header,
+body.arch-mode .site-footer {
+    display: none;
+}
+
+/* 页脚:细线 + 极小字 */
+footer.arch-shell-footer {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: var(--arch-s-5) var(--arch-s-5) var(--arch-s-6);
+    border-top: 1px solid var(--arch-rule);
+    margin-top: var(--arch-s-7);
+    color: var(--arch-ink-3);
+    font-size: var(--arch-fs-xs);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--arch-s-3);
+}
+
+footer.arch-shell-footer a {
+    color: var(--arch-ink-2);
+    text-decoration: none;
+    border-bottom: 1px dotted var(--arch-rule);
+}
+
+footer.arch-shell-footer a:hover {
+    color: var(--arch-accent);
+    border-bottom-color: var(--arch-accent);
+}
+
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * 3. 页面大标题:drafting sheet 标题块
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+.arch-title {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--arch-s-4);
+    padding-bottom: var(--arch-s-3);
+    margin-bottom: var(--arch-s-5);
+    border-bottom: 1px solid var(--arch-rule);
+    position: relative;
+}
+
+.arch-title::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -3px;
+    height: 1px;
+    background: var(--arch-rule);
+}
+
+.arch-title h1 {
+    font-family: "Fraunces", "Noto Serif SC", Georgia, serif;
+    font-weight: 500;
+    font-size: var(--arch-fs-3xl);
+    line-height: 1.1;
+    color: var(--arch-ink);
+    margin: 0;
+    letter-spacing: -0.02em;
+}
+
+.arch-title h1 code {
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 400;
+    font-size: 0.7em;
+    color: var(--arch-accent);
+}
+
+.arch-title .arch-title-meta {
+    font-family: "JetBrains Mono", monospace;
+    font-size: var(--arch-fs-sm);
+    color: var(--arch-ink-2);
+    text-align: right;
+    margin-left: auto;
+    line-height: 1.5;
+}
+
+.arch-title .arch-title-meta strong {
+    color: var(--arch-ink);
+    font-weight: 500;
+}
+
+.arch-title .arch-title-id {
+    display: inline-block;
+    font-family: "JetBrains Mono", monospace;
+    font-size: var(--arch-fs-xs);
+    color: var(--arch-accent);
+    border: 1px solid var(--arch-accent);
+    padding: 1px 5px;
+    margin-left: var(--arch-s-2);
+    vertical-align: middle;
+    letter-spacing: 0.05em;
+}
+
+/* 副标题块(detail 页常用) */
+.arch-subtitle {
+    color: var(--arch-ink-2);
+    font-size: var(--arch-fs-md);
+    margin: 0 0 var(--arch-s-5) 0;
+    line-height: 1.6;
+}
+
+.arch-subtitle a { color: var(--arch-ink); border-bottom: 1px solid var(--arch-rule); }
+.arch-subtitle a:hover { color: var(--arch-accent); border-bottom-color: var(--arch-accent); }
+.arch-subtitle .arch-subtitle-eyebrow {
+    font-family: "JetBrains Mono", monospace;
+    font-size: var(--arch-fs-xs);
+    color: var(--arch-accent);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-right: var(--arch-s-2);
+}
+
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * 4. 工具栏(列表页右上角操作 + 过滤器)
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+.arch-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--arch-s-4);
+    flex-wrap: wrap;
+    padding: var(--arch-s-3) 0;
+    border-bottom: 1px solid var(--arch-rule-soft);
+    margin-bottom: var(--arch-s-4);
+}
+
+.arch-toolbar .arch-toolbar-left,
+.arch-toolbar .arch-toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: var(--arch-s-3);
+    flex-wrap: wrap;
+}
+
+.arch-toolbar form {
+    margin: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--arch-s-2);
+}
+
+.arch-toolbar input,
+.arch-toolbar select {
+    margin: 0;
+    height: 2rem;
+    font-size: var(--arch-fs-sm);
+    padding: 0 var(--arch-s-2);
+    background: var(--arch-card);
+    border: 1px solid var(--arch-rule);
+    min-width: 0;
+}
+
+.arch-toolbar button,
+.arch-toolbar a[role="button"] {
+    height: 2rem;
+    line-height: 1;
+    padding: 0 var(--arch-s-4);
+    margin: 0;
+    font-size: var(--arch-fs-sm);
+    font-family: "Fraunces", "Noto Serif SC", Georgia, serif;
+}
+
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * 5. 水平 tab(子页面版)
+ *    与 landing 的 nav-strip 同款气质,但用更轻的横线 + 数字小角标
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+.arch-tabs {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    margin: 0 0 var(--arch-s-4) 0;
+    padding: 0;
+    border-bottom: 1px solid var(--arch-rule);
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+.arch-tabs a {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--arch-s-2);
+    padding: var(--arch-s-2) var(--arch-s-4);
+    color: var(--arch-ink-2);
+    text-decoration: none;
+    font-family: "Fraunces", "Noto Serif SC", Georgia, serif;
+    font-size: var(--arch-fs-md);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color 120ms, border-color 120ms;
+    white-space: nowrap;
+}
+
+.arch-tabs a:hover {
+    color: var(--arch-ink);
+    background: var(--arch-phosphor-bg);
+}
+
+.arch-tabs a[aria-current="page"] {
+    color: var(--arch-ink);
+    font-weight: 600;
+    border-bottom-color: var(--arch-accent);
+}
+
+.arch-tabs a .arch-tab-count {
+    display: inline-block;
+    min-width: 1.5rem;
+    padding: 0 var(--arch-s-2);
+    font-family: "JetBrains Mono", monospace;
+    font-size: var(--arch-fs-xs);
+    color: var(--arch-phosphor);
+    background: var(--arch-phosphor-bg);
+    text-align: center;
+    line-height: 1.4;
+}
+
+.arch-tabs a[aria-current="page"] .arch-tab-count {
+    color: var(--arch-paper);
+    background: var(--arch-phosphor);
+}
+
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * 6. 表格(.arch-table):drafting sheet 风格
+ *    - 第一列加粗 + 略宽
+ *    - 行号角标
+ *    - 状态/类型用 chip(见下)
+ *    - 整体去 box-shadow,只有细线
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+.arch-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid var(--arch-rule);
+    background: var(--arch-card);
+    font-size: var(--arch-fs-sm);
+    margin: 0 0 var(--arch-s-5) 0;
+}
+
+.arch-table thead th {
+    text-align: left;
+    font-family: "JetBrains Mono", monospace;
+    font-size: var(--arch-fs-xs);
+    font-weight: 500;
+    color: var(--arch-ink-2);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: var(--arch-s-2) var(--arch-s-3);
+    background: var(--arch-paper);
+    border-bottom: 1px solid var(--arch-rule);
+    white-space: nowrap;
+}
+
+.arch-table tbody td {
+    padding: var(--arch-s-2) var(--arch-s-3);
+    border-bottom: 1px solid var(--arch-rule-soft);
+    vertical-align: top;
+    line-height: 1.5;
+}
+
+.arch-table tbody tr:last-child td { border-bottom: none; }
+
+.arch-table tbody tr:hover {
+    background: rgba(194, 65, 12, 0.03);
+}
+
+.arch-table tbody td code,
+.arch-table tbody td .arch-mono {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.92em;
+    color: var(--arch-ink);
+    background: transparent;
+    padding: 0;
+}
+
+.arch-table tbody td a {
+    color: var(--arch-ink);
+    text-decoration: none;
+    border-bottom: 1px solid var(--arch-rule);
+    transition: color 120ms, border-color 120ms;
+}
+
+.arch-table tbody td a:hover {
+    color: var(--arch-accent);
+    border-bottom-color: var(--arch-accent);
+}
+
+.arch-table tbody td .arch-row-num {
+    display: inline-block;
+    font-family: "JetBrains Mono", monospace;
+    font-size: var(--arch-fs-xs);
+    color: var(--arch-ink-3);
+    min-width: 1.5rem;
+    user-select: none;
+}
+
+.arch-table tbody td .arch-muted {
+    color: var(--arch-ink-3);
+    font-size: var(--arch-fs-xs);
+}
+
+.arch-table .arch-td-name {
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.arch-table .arch-td-meta {
+    font-size: var(--arch-fs-xs);
+    color: var(--arch-ink-2);
+    margin-top: 2px;
+}
+
+/* 表格内的 chip(行内展示状态/类型) */
+.arch-table .arch-chip { margin-right: var(--arch-s-2); }
+
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * 7. Chip(替代 .badge):方括号边角,带语义色
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+.arch-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 6px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: var(--arch-fs-xs);
+    line-height: 1.5;
+    color: var(--arch-ink);
+    background: var(--arch-card);
+    border: 1px solid var(--arch-rule);
+    white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    text-decoration: none;
+}
+
+.arch-chip::before {
+    content: "";
+    display: inline-block;
+    width: 5px;
+    height: 5px;
+    background: currentColor;
+    border-radius: 50%;
+    opacity: 0.7;
+}
+
+.arch-chip[data-tone="accent"] { color: var(--arch-accent); border-color: var(--arch-accent); background: var(--arch-accent-bg); }
+.arch-chip[data-tone="phosphor"] { color: var(--arch-phosphor); border-color: var(--arch-phosphor); background: var(--arch-phosphor-bg); }
+.arch-chip[data-tone="brass"] { color: var(--arch-brass); border-color: var(--arch-brass); background: var(--arch-brass-bg); }
+.arch-chip[data-tone="ok"] { color: var(--arch-ok); border-color: var(--arch-ok); }
+.arch-chip[data-tone="warn"] { color: var(--arch-warn); border-color: var(--arch-warn); }
+.arch-chip[data-tone="error"] { color: var(--arch-error); border-color: var(--arch-error); }
+.arch-chip[data-tone="info"] { color: var(--arch-info); border-color: var(--arch-info); }
+.arch-chip[data-tone="muted"] { color: var(--arch-ink-3); border-color: var(--arch-rule); }
+
+/* 状态色直接用 (无 data-tone) */
+.arch-chip.layer-L0 { color: #6B5B3F; border-color: #6B5B3F; background: #ECE5D2; }
+.arch-chip.layer-L1 { color: #4A5C3F; border-color: #4A5C3F; background: var(--arch-phosphor-bg); }
+.arch-chip.layer-L2 { color: #5A5C8A; border-color: #5A5C8A; background: #E0E2EE; }
+.arch-chip.layer-L3 { color: var(--arch-accent); border-color: var(--arch-accent); background: var(--arch-accent-bg); }
+
+/* 兼容旧 badge 类(过渡期)— 抹平为 chip */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 6px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: var(--arch-fs-xs);
+    line-height: 1.5;
+    border: 1px solid var(--arch-rule);
+    background: var(--arch-card);
+    color: var(--arch-ink);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+
+.badge-success { color: var(--arch-ok); border-color: var(--arch-ok); background: rgba(21, 128, 61, 0.06); }
+.badge-error, .badge-danger { color: var(--arch-error); border-color: var(--arch-error); background: rgba(185, 28, 28, 0.06); }
+.badge-warning { color: var(--arch-warn); border-color: var(--arch-warn); background: rgba(180, 83, 9, 0.06); }
+.badge-secondary { color: var(--arch-ink-2); border-color: var(--arch-rule); background: var(--arch-card); }
+
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * 8. 卡片 / Article(detail 页用)
+ *    PicoCSS article 是 box-shadow 浮卡;我们换成"细线 + 左色条"的 paper 风格
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+article.arch-card,
+.arch-card {
+    background: var(--arch-card);
+    border: 1px solid var(--arch-rule);
+    padding: var(--arch-s-5);
+    margin: 0 0 var(--arch-s-5) 0;
+    box-shadow: none;
+    border-radius: 0;
+}
+
+.arch-card[data-tone="accent"] { border-left: 4px solid var(--arch-accent); }
+.arch-card[data-tone="ok"]     { border-left: 4px solid var(--arch-ok); }
+.arch-card[data-tone="warn"]   { border-left: 4px solid var(--arch-warn); }
+.arch-card[data-tone="error"]  { border-left: 4px solid var(--arch-error); }
+.arch-card[data-tone="phosphor"] { border-left: 4px solid var(--arch-phosphor); }
+.arch-card[data-tone="brass"]  { border-left: 4px solid var(--arch-brass); }
+
+.arch-card > h2:first-child,
+.arch-card > h3:first-child,
+.arch-card > h4:first-child {
+    margin-top: 0;
+    font-family: "Fraunces", "Noto Serif SC", Georgia, serif;
+    font-weight: 500;
+    color: var(--arch-ink);
+}
+
+.arch-card > h2 { font-size: var(--arch-fs-xl); margin-bottom: var(--arch-s-3); }
+.arch-card > h3 { font-size: var(--arch-fs-lg); margin-bottom: var(--arch-s-3); }
+.arch-card > h4 { font-size: var(--arch-fs-md); margin-bottom: var(--arch-s-3); }
+
+/* 兼容旧 article(在子页面内部直接出现的 article)— 抹平到 arch-card */
+body.arch-mode main article {
+    background: var(--arch-card);
+    border: 1px solid var(--arch-rule);
+    padding: var(--arch-s-5);
+    margin: 0 0 var(--arch-s-5) 0;
+    box-shadow: none;
+    border-radius: 0;
+}
+
+body.arch-mode main article > h2:first-child,
+body.arch-mode main article > h3:first-child,
+body.arch-mode main article > h4:first-child {
+    margin-top: 0;
+    font-family: "Fraunces", "Noto Serif SC", Georgia, serif;
+    font-weight: 500;
+    color: var(--arch-ink);
+}
+
+body.arch-mode main article > h2 { font-size: var(--arch-fs-xl); }
+body.arch-mode main article > h3 { font-size: var(--arch-fs-lg); }
+body.arch-mode main article > h4 { font-size: var(--arch-fs-md); }
+
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * 9. Key-Value 双列布局(子页面详情常用)
+ *    替代 PicoCSS .grid + <ul><li><strong>...</strong></li></ul>
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+.arch-kvgrid {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    column-gap: var(--arch-s-5);
+    row-gap: var(--arch-s-2);
+    font-size: var(--arch-fs-sm);
+    margin: 0;
+}
+
+.arch-kvgrid dt {
+    font-family: "JetBrains Mono", monospace;
+    font-size: var(--arch-fs-xs);
+    color: var(--arch-ink-2);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+    padding-top: 1px;
+}
+
+.arch-kvgrid dd {
+    margin: 0;
+    color: var(--arch-ink);
+    line-height: 1.6;
+}
+
+.arch-kvgrid dd code {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.92em;
+    color: var(--arch-ink);
+}
+
+/* 2-3 列的等宽 key-value 网格(适合 detail 页分组展示) */
+.arch-kvgrid-3 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--arch-s-6);
+    row-gap: var(--arch-s-4);
+    margin: 0;
+}
+
+.arch-kvgrid-3 .arch-kv {
+    display: flex;
+    flex-direction: column;
+    gap: var(--arch-s-1);
+    border-top: 1px solid var(--arch-rule-soft);
+    padding-top: var(--arch-s-2);
+}
+
+.arch-kvgrid-3 .arch-kv .arch-kv-label {
+    font-family: "JetBrains Mono", monospace;
+    font-size: var(--arch-fs-xs);
+    color: var(--arch-ink-2);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.arch-kvgrid-3 .arch-kv .arch-kv-value {
+    font-family: "Fraunces", "Noto Serif SC", Georgia, serif;
+    font-size: var(--arch-fs-lg);
+    color: var(--arch-ink);
+    line-height: 1.3;
+}
+
+.arch-kvgrid-3 .arch-kv .arch-kv-value code {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.85em;
+}
+
+.arch-kvgrid-3 .arch-kv .arch-kv-value small {
+    color: var(--arch-ink-2);
+    font-size: var(--arch-fs-sm);
+    font-family: "Noto Sans SC", "Switzer", system-ui, sans-serif;
+}
+
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * 10. 看板:4 列布局,每列顶部带编号 + 计数,卡片纸片化
+ *     用于 feedbacks/kanban.html
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+.arch-kanban {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--arch-s-4);
+    margin: var(--arch-s-4) 0;
+}
+
+@media (max-width: 1100px) {
+    .arch-kanban { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 640px) {
+    .arch-kanban { grid-template-columns: 1fr; }
+}
+
+.arch-kanban-col {
+    background: var(--arch-card);
+    border: 1px solid var(--arch-rule);
+    padding: var(--arch-s-3);
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--arch-s-3);
+}
+
+.arch-kanban-col .arch-kanban-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--arch-rule);
+    padding-bottom: var(--arch-s-2);
+}
+
+.arch-kanban-col .arch-kanban-head h4 {
+    margin: 0;
+    font-family: "Fraunces", "Noto Serif SC", Georgia, serif;
+    font-weight: 500;
+    font-size: var(--arch-fs-md);
+    color: var(--arch-ink);
+}
+
+.arch-kanban-col .arch-kanban-head .arch-kanban-num {
+    font-family: "JetBrains Mono", monospace;
+    font-size: var(--arch-fs-xs);
+    color: var(--arch-ink-2);
+    background: var(--arch-paper);
+    border: 1px solid var(--arch-rule);
+    padding: 1px 6px;
+}
+
+.arch-kanban-col[data-tone="open"]    { border-top: 3px solid var(--arch-info); }
+.arch-kanban-col[data-tone="triaged"] { border-top: 3px solid var(--arch-warn); }
+.arch-kanban-col[data-tone="fixing"]  { border-top: 3px solid var(--arch-accent); }
+.arch-kanban-col[data-tone="closed"]  { border-top: 3px solid var(--arch-ok); }
+
+.arch-kanban-card {
+    background: var(--arch-paper);
+    border: 1px solid var(--arch-rule-soft);
+    padding: var(--arch-s-3);
+    font-size: var(--arch-fs-sm);
+    line-height: 1.5;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--arch-s-2);
+}
+
+.arch-kanban-card .arch-kanban-card-chips {
+    display: flex;
+    gap: var(--arch-s-2);
+    flex-wrap: wrap;
+}
+
+.arch-kanban-card .arch-kanban-card-summary a {
+    color: var(--arch-ink);
+    text-decoration: none;
+    border-bottom: 1px solid var(--arch-rule);
+    font-family: "Fraunces", "Noto Serif SC", Georgia, serif;
+    font-size: var(--arch-fs-md);
+    line-height: 1.35;
+}
+
+.arch-kanban-card .arch-kanban-card-summary a:hover {
+    color: var(--arch-accent);
+    border-bottom-color: var(--arch-accent);
+}
+
+.arch-kanban-card .arch-kanban-card-meta {
+    font-family: "JetBrains Mono", monospace;
+    font-size: var(--arch-fs-xs);
+    color: var(--arch-ink-3);
+    display: flex;
+    gap: var(--arch-s-2);
+    flex-wrap: wrap;
+}
+
+.arch-kanban-col .arch-kanban-empty {
+    color: var(--arch-ink-3);
+    font-size: var(--arch-fs-sm);
+    text-align: center;
+    padding: var(--arch-s-5) 0;
+    border: 1px dashed var(--arch-rule-soft);
+}
+
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * 11. Stepper(doubt cycle 用):CLAIM → EXTRACT → DOUBT → RECONCILE → STOP
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+.arch-stepper {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0;
+    margin: 0 0 var(--arch-s-5) 0;
+    border: 1px solid var(--arch-rule);
+    background: var(--arch-card);
+}
+
+.arch-step {
+    padding: var(--arch-s-3) var(--arch-s-4);
+    border-right: 1px solid var(--arch-rule-soft);
+    display: flex;
+    flex-direction: column;
+    gap: var(--arch-s-1);
+    position: relative;
+}
+
+.arch-step:last-child { border-right: none; }
+
+.arch-step .arch-step-num {
+    font-family: "JetBrains Mono", monospace;
+    font-size: var(--arch-fs-xs);
+    color: var(--arch-ink-3);
+    letter-spacing: 0.1em;
+}
+
+.arch-step .arch-step-label {
+    font-family: "Fraunces", "Noto Serif SC", Georgia, serif;
+    font-size: var(--arch-fs-md);
+    color: var(--arch-ink);
+    font-weight: 500;
+}
+
+.arch-step[data-state="active"] {
+    background: var(--arch-accent-bg);
+}
+
+.arch-step[data-state="active"] .arch-step-num { color: var(--arch-accent); }
+.arch-step[data-state="active"] .arch-step-label { color: var(--arch-accent); font-weight: 600; }
+
+.arch-step[data-state="done"] {
+    background: var(--arch-phosphor-bg);
+}
+
+.arch-step[data-state="done"] .arch-step-num { color: var(--arch-phosphor); }
+.arch-step[data-state="done"] .arch-step-label { color: var(--arch-phosphor); }
+
+.arch-step[data-state="stopped"] {
+    background: var(--arch-paper);
+    opacity: 0.6;
+}
+
+@media (max-width: 900px) {
+    .arch-stepper { grid-template-columns: repeat(2, 1fr); }
+    .arch-step { border-right: 1px solid var(--arch-rule-soft); }
+    .arch-step:nth-child(2n) { border-right: none; }
+}
+
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * 12. 折叠区块(<details>):drafting sheet 折叠标签
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+.arch-details {
+    border: 1px solid var(--arch-rule);
+    background: var(--arch-card);
+    margin: 0 0 var(--arch-s-4) 0;
+}
+
+.arch-details > summary {
+    cursor: pointer;
+    padding: var(--arch-s-3) var(--arch-s-4);
+    font-family: "Fraunces", "Noto Serif SC", Georgia, serif;
+    font-size: var(--arch-fs-md);
+    color: var(--arch-ink);
+    list-style: none;
+    border-bottom: 1px solid transparent;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: var(--arch-s-3);
+}
+
+.arch-details > summary::-webkit-details-marker { display: none; }
+
+.arch-details > summary::before {
+    content: "▸";
+    display: inline-block;
+    font-family: "JetBrains Mono", monospace;
+    color: var(--arch-accent);
+    transition: transform 150ms;
+    width: 0.8em;
+    text-align: center;
+}
+
+.arch-details[open] > summary::before { transform: rotate(90deg); }
+
+.arch-details[open] > summary { border-bottom-color: var(--arch-rule-soft); }
+
+.arch-details > .arch-details-body {
+    padding: var(--arch-s-4);
+    border-top: 1px solid var(--arch-rule-soft);
+}
+
+.arch-details pre {
+    background: var(--arch-paper);
+    border: 1px solid var(--arch-rule-soft);
+    padding: var(--arch-s-3);
+    margin: 0;
+    font-family: "JetBrains Mono", monospace;
+    font-size: var(--arch-fs-xs);
+    line-height: 1.6;
+    overflow-x: auto;
+}
+
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * 13. 状态推进表单 + 操作按钮(detail 页通用)
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+.arch-action {
+    background: var(--arch-card);
+    border: 1px solid var(--arch-rule);
+    padding: var(--arch-s-4);
+    margin: 0 0 var(--arch-s-5) 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--arch-s-3);
+    align-items: flex-end;
+}
+
+.arch-action > label,
+.arch-action > .arch-action-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--arch-s-1);
+    font-family: "JetBrains Mono", monospace;
+    font-size: var(--arch-fs-xs);
+    color: var(--arch-ink-2);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    flex: 1 1 200px;
+    min-width: 0;
+}
+
+.arch-action select,
+.arch-action input[type="text"],
+.arch-action input[type="date"] {
+    margin: 0;
+    height: 2rem;
+    font-size: var(--arch-fs-sm);
+    padding: 0 var(--arch-s-2);
+    background: var(--arch-paper);
+    border: 1px solid var(--arch-rule);
+    text-transform: none;
+    letter-spacing: normal;
+    font-family: "Noto Sans SC", "Switzer", system-ui, sans-serif;
+    color: var(--arch-ink);
+}
+
+.arch-action button {
+    height: 2rem;
+    padding: 0 var(--arch-s-5);
+    margin: 0;
+    font-size: var(--arch-fs-sm);
+    font-family: "Fraunces", "Noto Serif SC", Georgia, serif;
+    background: var(--arch-ink);
+    color: var(--arch-paper);
+    border: 1px solid var(--arch-ink);
+    cursor: pointer;
+    transition: background 120ms;
+}
+
+.arch-action button:hover {
+    background: var(--arch-accent);
+    border-color: var(--arch-accent);
+}
+
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * 14. 部署矩阵 host × component(special table)
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+.arch-matrix {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid var(--arch-rule);
+    background: var(--arch-card);
+    font-size: var(--arch-fs-xs);
+    margin: 0 0 var(--arch-s-5) 0;
+}
+
+.arch-matrix th,
+.arch-matrix td {
+    padding: var(--arch-s-2) var(--arch-s-3);
+    border: 1px solid var(--arch-rule-soft);
+    text-align: left;
+    vertical-align: top;
+}
+
+.arch-matrix thead th {
+    background: var(--arch-paper);
+    font-family: "JetBrains Mono", monospace;
+    font-size: var(--arch-fs-xs);
+    color: var(--arch-ink-2);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    position: sticky;
+    top: 0;
+}
+
+.arch-matrix tbody th {
+    background: var(--arch-paper);
+    font-family: "JetBrains Mono", monospace;
+    color: var(--arch-ink);
+    font-weight: 500;
+    white-space: nowrap;
+    border-right: 2px solid var(--arch-rule);
+}
+
+.arch-matrix .arch-cell-yes { color: var(--arch-ok); font-family: "JetBrains Mono", monospace; text-align: center; }
+.arch-matrix .arch-cell-no  { color: var(--arch-ink-3); font-family: "JetBrains Mono", monospace; text-align: center; }
+
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * 15. Code / pre:统一 monospace 配色
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+code, pre, kbd, samp {
+    font-family: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+}
+
+pre {
+    background: var(--arch-paper);
+    border: 1px solid var(--arch-rule-soft);
+    padding: var(--arch-s-3);
+    overflow-x: auto;
+    font-size: var(--arch-fs-xs);
+    line-height: 1.6;
+    margin: 0 0 var(--arch-s-4) 0;
+}
+
+code {
+    background: var(--arch-paper);
+    border: 1px solid var(--arch-rule-soft);
+    padding: 1px 4px;
+    font-size: 0.9em;
+    color: var(--arch-ink);
+}
+
+p code, li code, td code {
+    font-size: 0.92em;
+}
+
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * 16. 链接 / hover:统一行为
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+a {
+    color: var(--arch-ink);
+}
+
+main a:not([role="button"]):not(.arch-naked) {
+    text-decoration: none;
+    border-bottom: 1px solid var(--arch-rule);
+    transition: color 120ms, border-color 120ms;
+}
+
+main a:not([role="button"]):not(.arch-naked):hover {
+    color: var(--arch-accent);
+    border-bottom-color: var(--arch-accent);
+}
+
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * 17. 移动端
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+    :root {
+        --arch-fs-3xl: 1.8rem;
+        --arch-fs-2xl: 1.45rem;
+    }
+
+    main.arch-main {
+        padding: var(--arch-s-4);
+    }
+
+    .arch-title {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .arch-title .arch-title-meta {
+        margin-left: 0;
+        text-align: left;
+    }
+
+    .arch-kvgrid {
+        grid-template-columns: 1fr;
+        row-gap: var(--arch-s-1);
+    }
+
+    .arch-kvgrid dt { padding-top: var(--arch-s-2); }
+
+    header.arch-shell-header .arch-shell-search input { min-width: 0; width: 100%; }
+}
+
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * 18. 偏好适配
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+@media (prefers-color-scheme: dark) {
+    /* 暂不实现 dark mode — drafting sheet 是纸张隐喻,反相不自然 */
+}

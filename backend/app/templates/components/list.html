@@ -3,92 +3,106 @@
 {% block title %}组件列表{% endblock %}
 
 {% block content %}
-<hgroup>
-    <h1>组件列表</h1>
-    <p>{{ total }} 个组件{% if filters.q %} · 搜索 "{{ filters.q }}"{% endif %}</p>
-</hgroup>
+{# 大标题:章节号 + 标题 + 元信息 #}
+<div class="arch-title">
+    <h1>组件总册</h1>
+    <div class="arch-title-meta">
+        <strong>{{ total }}</strong> 个组件<br>
+        <span style="color:var(--arch-ink-3);">layers L0–L3 · 真资产 / 项目级</span>
+    </div>
+</div>
 
-<!-- 层级 tab(A-1 REQ-6cce2927)+ 顶部右侧操作 -->
-<div class="list-header">
-    <div class="list-tabs">
+{# 工具栏:tab 切换 + 右侧操作 #}
+<div class="arch-toolbar">
+    <div class="arch-toolbar-left">
         {% include "_components/tabs.html" with context %}
     </div>
-    <div class="list-actions">
-        <a href="/components/new" role="button" class="secondary">+ 新建组件</a>
+    <div class="arch-toolbar-right">
+        <a href="/components/new" role="button" class="primary">+ 新建组件</a>
         {# REQ-f740a3be:显式开关 show archived,默认隐藏避免误以为正常组件 #}
-        <form method="get" action="/components" style="display:inline-block; margin-left: 0.5rem; margin-bottom: 0;">
+        <form method="get" action="/components" style="display:inline-flex;align-items:center;gap:0.5rem;margin:0;">
             {% if filters.layer %}<input type="hidden" name="tab" value="{{ active_tab }}">{% endif %}
             {% if filters.category %}<input type="hidden" name="category" value="{{ filters.category }}">{% endif %}
             {% if filters.is_asset %}<input type="hidden" name="is_asset" value="{{ filters.is_asset }}">{% endif %}
             {% if filters.q %}<input type="hidden" name="q" value="{{ filters.q }}">{% endif %}
-            <label style="display:inline-flex; align-items:center; gap:0.4rem; margin:0;">
+            <label style="display:inline-flex; align-items:center; gap:0.4rem; margin:0; font-size:0.85rem; color:var(--arch-ink-2);">
                 <input type="checkbox" name="include_archived" value="true"
                        {% if filters.include_archived == 'true' %}checked{% endif %}
                        onchange="this.form.submit()">
-                <small>显示已归档</small>
+                显示已归档
             </label>
         </form>
     </div>
 </div>
 
-<!-- 其他过滤(category / is_asset / q)保留为下方 select,不被 tab 替代 -->
-<form method="get" action="/components" class="grid">
-    {# tab 切换的当前值也带过去,保持状态一致 #}
+{# 二级过滤 #}
+<form method="get" action="/components" class="arch-toolbar" style="border-bottom:none; margin-bottom: var(--arch-s-4);">
     {% if filters.layer %}
         <input type="hidden" name="tab" value="{{ active_tab }}">
     {% endif %}
-    <select name="category" onchange="this.form.submit()">
-        <option value="">所有分类</option>
-        {% for cat in ["auth", "db", "cache", "queue", "log", "deploy", "monitor", "ui", "util", "other"] %}
-        <option value="{{ cat }}" {% if filters.category == cat %}selected{% endif %}>{{ cat | category_zh }}</option>
-        {% endfor %}
-    </select>
+    <div class="arch-toolbar-left">
+        <select name="category" onchange="this.form.submit()" aria-label="分类">
+            <option value="">所有分类</option>
+            {% for cat in ["auth", "db", "cache", "queue", "log", "deploy", "monitor", "ui", "util", "other"] %}
+            <option value="{{ cat }}" {% if filters.category == cat %}selected{% endif %}>{{ cat | category_zh }}</option>
+            {% endfor %}
+        </select>
 
-    <select name="is_asset" onchange="this.form.submit()">
-        <option value="">所有</option>
-        <option value="true" {% if filters.is_asset == true %}selected{% endif %}>真资产</option>
-        <option value="false" {% if filters.is_asset == false %}selected{% endif %}>项目级</option>
-    </select>
+        <select name="is_asset" onchange="this.form.submit()" aria-label="资产类型">
+            <option value="">所有</option>
+            <option value="true" {% if filters.is_asset == true %}selected{% endif %}>真资产</option>
+            <option value="false" {% if filters.is_asset == false %}selected{% endif %}>项目级</option>
+        </select>
 
-    <input type="search" name="q" placeholder="关键字..." value="{{ filters.q or '' }}">
-    <button type="submit">搜索</button>
+        <input type="search" name="q" placeholder="关键字..." value="{{ filters.q or '' }}">
+        <button type="submit">搜索</button>
+    </div>
 </form>
 
-<!-- 列表 -->
+{# 列表 #}
 {% if components %}
-<table>
+<table class="arch-table">
     <thead>
         <tr>
+            <th style="width: 2.5rem;">#</th>
             <th>组件名</th>
             <th>标题</th>
             <th>层级</th>
             <th>分类</th>
             <th>资产</th>
             <th>形态</th>
-            {# REQ-f740a3be:已归档显式列,避免被误认为正常组件 #}
             <th>归档</th>
         </tr>
     </thead>
     <tbody>
     {% for c in components %}
         <tr>
-            <td><a href="/components/{{ c.name }}"><code>{{ c.name }}</code></a></td>
-            <td>{{ c.title }}</td>
-            <td><span class="badge {{ c.layer | layer_color }}">{{ c.layer | layer_zh }}</span></td>
-            <td><small>{{ c.category | category_zh }}</small></td>
+            <td><span class="arch-row-num">{{ loop.index }}</span></td>
+            <td class="arch-td-name"><a href="/components/{{ c.name }}">{{ c.name }}</a></td>
             <td>
-                {% if c.is_asset %}
-                    <span class="badge badge-success" title="真资产:可复用、跨项目" aria-label="真资产">✅ 真资产</span>
-                {% else %}
-                    <span class="badge badge-secondary" title="项目级:仅特定项目使用" aria-label="项目级">❌ 项目级</span>
+                {{ c.title }}
+                {% if c.tags %}
+                <div class="arch-td-meta">
+                    {% for tag in c.tags[:3] %}<span class="arch-chip" data-tone="muted">{{ tag }}</span>{% endfor %}
+                    {% if c.tags|length > 3 %}<span class="arch-muted">+{{ c.tags|length - 3 }}</span>{% endif %}
+                </div>
                 {% endif %}
             </td>
-            <td><small>{{ c.distribution_form | form_label }}</small></td>
+            <td><span class="arch-chip layer-{{ c.layer[-2:] }}">{{ c.layer | layer_zh }}</span></td>
+            <td><span class="arch-muted">{{ c.category | category_zh }}</span></td>
+            <td>
+                {% if c.is_asset %}
+                    <span class="arch-chip" data-tone="ok" title="真资产:可复用、跨项目">真资产</span>
+                {% else %}
+                    <span class="arch-chip" data-tone="muted" title="项目级:仅特定项目使用">项目级</span>
+                {% endif %}
+            </td>
+            <td><span class="arch-muted">{{ c.distribution_form | form_label }}</span></td>
             <td>
                 {% if c.is_archived %}
-                    <span class="badge badge-warning" title="已归档(软删除)">🗄 已归档</span>
+                    <span class="arch-chip" data-tone="warn" title="已归档(软删除)">已归档</span>
                 {% else %}
-                    <small>-</small>
+                    <span class="arch-muted">—</span>
                 {% endif %}
             </td>
         </tr>

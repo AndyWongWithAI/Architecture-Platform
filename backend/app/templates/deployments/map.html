@@ -3,44 +3,66 @@
 {% block title %}部署地图{% endblock %}
 
 {% block content %}
-<hgroup>
+<div class="arch-title">
     <h1>部署地图</h1>
-    <p>{{ total }} 条部署 · 主机 × 组件矩阵视图</p>
-</hgroup>
+    <div class="arch-title-meta">
+        <strong>{{ total }}</strong> 条部署 · <strong>{{ by_host | length }}</strong> 个主机<br>
+        <span style="color:var(--arch-ink-3);">host × env 矩阵</span>
+    </div>
+</div>
 
-<!-- 过滤 -->
-<form method="get" action="/deployments" class="grid">
-    <input type="text" name="host" placeholder="主机名(如 huawei-1)" value="{{ filters.host or '' }}">
-    <select name="env">
-        <option value="">所有环境</option>
-        {% for e in ["dev", "staging", "prod"] %}
-        <option value="{{ e }}" {% if filters.env == e %}selected{% endif %}>{{ e }}</option>
-        {% endfor %}
-    </select>
-    <button type="submit">筛选</button>
+<form method="get" action="/deployments" class="arch-toolbar" style="border-bottom: none; margin-bottom: var(--arch-s-4);">
+    <div class="arch-toolbar-left">
+        <input type="text" name="host" placeholder="主机名(如 huawei-1)" value="{{ filters.host or '' }}">
+        <select name="env">
+            <option value="">所有环境</option>
+            {% for e in ["dev", "staging", "prod"] %}
+            <option value="{{ e }}" {% if filters.env == e %}selected{% endif %}>{{ e }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit">筛选</button>
+    </div>
 </form>
 
-<!-- 主机分组视图 -->
-<h3>按主机分组({{ by_host | length }} 个主机)</h3>
+<h4 style="font-family: 'Fraunces', 'Noto Serif SC', Georgia, serif; font-size: 1.1rem; color: var(--arch-ink); margin: 0 0 var(--arch-s-3) 0; padding-bottom: var(--arch-s-2); border-bottom: 1px solid var(--arch-rule);">
+    按主机分组
+</h4>
+
 {% if by_host %}
 {% for host, deps in by_host.items() %}
-<article>
-    <header>
-        <strong>🖥️ {{ host }}</strong>
-        <small>({{ deps | length }} 个部署)</small>
-    </header>
-    <table>
+<article class="arch-card" data-tone="phosphor">
+    <h4>
+        🖥️ {{ host }}
+        <span class="arch-muted" style="font-size: 0.85rem; font-weight: normal;">· {{ deps | length }} 个部署</span>
+    </h4>
+    <table class="arch-table">
         <thead>
-            <tr><th>环境</th><th>部署路径</th><th>部署人</th><th>时间</th><th>可重现?</th></tr>
+            <tr>
+                <th style="width: 2.5rem;">#</th>
+                <th style="width: 6rem;">环境</th>
+                <th>部署路径</th>
+                <th>部署人</th>
+                <th>时间</th>
+                <th style="width: 6rem;">可重现</th>
+            </tr>
         </thead>
         <tbody>
         {% for dep in deps %}
             <tr>
-                <td><span class="badge">{{ dep.env }}</span></td>
-                <td><code>{{ dep.deploy_path or '-' }}</code></td>
-                <td><small>{{ dep.deployed_by }}</small></td>
-                <td><small>{{ dep.deployed_at | format_dt }}</small></td>
-                <td>{% if dep.build_reproducible %}<span class="badge badge-success">✓</span>{% else %}<span class="badge badge-warning">✗</span>{% endif %}</td>
+                <td><span class="arch-row-num">{{ loop.index }}</span></td>
+                <td>
+                    <span class="arch-chip" data-tone="{% if dep.env == 'prod' %}error{% elif dep.env == 'staging' %}warn{% else %}muted{% endif %}">{{ dep.env }}</span>
+                </td>
+                <td><code style="font-size: 0.85em;">{{ dep.deploy_path or '—' }}</code></td>
+                <td><span class="arch-muted">{{ dep.deployed_by }}</span></td>
+                <td><span class="arch-muted">{{ dep.deployed_at | format_dt }}</span></td>
+                <td>
+                    {% if dep.build_reproducible %}
+                        <span class="arch-chip" data-tone="ok">✓</span>
+                    {% else %}
+                        <span class="arch-chip" data-tone="warn">✗</span>
+                    {% endif %}
+                </td>
             </tr>
         {% endfor %}
         </tbody>
@@ -48,9 +70,12 @@
 </article>
 {% endfor %}
 {% else %}
-<p><em>暂无部署(用 <code>arch deployment create</code> 或 GitHub Action 登记)</em></p>
+<article class="arch-card" style="text-align: center;">
+    <p><em>暂无部署(用 <code>arch deployment create</code> 或 GitHub Action 登记)</em></p>
+</article>
 {% endif %}
 
-<hr>
-<p><small>💡 部署由 GitHub Action (<code>arch-platform-register@v1</code>) 在 CI/CD pipeline 中自动登记</small></p>
+<p style="margin-top: var(--arch-s-4); font-size: 0.85rem; color: var(--arch-ink-2);">
+    💡 部署由 GitHub Action (<code>arch-platform-register@v1</code>) 在 CI/CD pipeline 中自动登记
+</p>
 {% endblock %}

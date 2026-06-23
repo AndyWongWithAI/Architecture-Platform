@@ -1,19 +1,16 @@
 {# htmx 局部片段:单个 cycle 卡片(用于 dashboard 列表) #}
-<article>
-    <header>
-        <a href="/doubt/cycles/{{ cycle.id }}"><strong>{{ cycle.id[:8] }}</strong></a>
+<article class="arch-card" style="padding: var(--arch-s-3) var(--arch-s-4);">
+    <header style="display: flex; align-items: center; gap: var(--arch-s-2); margin-bottom: var(--arch-s-2);">
+        <a href="/doubt/cycles/{{ cycle.id }}" class="arch-td-name">{{ cycle.id[:8] }}</a>
         {% if cycle.verdict %}
-        <mark style="background:
-            {%- if cycle.verdict == 'pass' %} #a3e635
-            {%- elif cycle.verdict == 'fail' %} #ef4444
-            {%- else %} #fbbf24 {%- endif %};">
-            {{ cycle.verdict }}
-        </mark>
+            <span class="arch-chip" data-tone="{% if cycle.verdict == 'pass' %}ok{% elif cycle.verdict == 'fail' %}error{% else %}warn{% endif %}">{{ cycle.verdict }}</span>
         {% else %}
-        <mark>in progress</mark>
+            <span class="arch-chip" data-tone="muted">进行中</span>
         {% endif %}
-        | cycle #{{ cycle.cycle_count }}/{{ cycle.max_cycles }}
+        <span class="arch-muted" style="font-size: 0.85rem;">cycle #{{ cycle.cycle_count }}/{{ cycle.max_cycles }}</span>
     </header>
-    <p>{{ cycle.claim[:120] }}{% if cycle.claim|length > 120 %}…{% endif %}</p>
-    <small>{{ cycle.created_at[:19] }} · {{ cycle.findings|length }} findings · by {{ cycle.created_by }}</small>
+    <p style="margin: 0; font-size: 0.95rem;">{{ cycle.claim[:120] }}{% if cycle.claim|length > 120 %}…{% endif %}</p>
+    <p style="margin: var(--arch-s-2) 0 0 0; font-size: 0.8rem; color: var(--arch-ink-3);">
+        {{ cycle.created_at[:19] }} · {{ cycle.findings|length }} findings · by {{ cycle.created_by }}
+    </p>
 </article>

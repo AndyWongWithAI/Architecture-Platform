@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}架构平台{% endblock %} · 架构平台</title>
 
-    <!-- PicoCSS v2(CDN) -->
+    <!-- PicoCSS v2(CDN)— form 控件 / dialog / table 语义依赖 -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
 
     <!-- 自定义样式 -->
@@ -14,57 +14,65 @@
     <link rel="stylesheet" href="/static/css/tabs.css">
     <!-- 全局视觉契约 / token 层(REQ-010fb7b5):色板/间距/icon 尺寸 + 面包屑/空状态 -->
     <link rel="stylesheet" href="/static/css/site.css">
+    <!-- 子页面 drafting sheet 视觉层(2026-06-24)— chrome/表格/卡片/看板/步骤条 -->
+    <link rel="stylesheet" href="/static/css/draft.css">
+
+    <!-- 字体(与 landing 一致:Fraunces + Switzer + JetBrains Mono + Noto SC) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..700,0..100,0..1&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@400;500;700&family=Switzer:wght@400;500;600&display=swap"
+        rel="stylesheet">
 
     <!-- HTMX 2.x(CDN) -->
     <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.1/dist/htmx.min.js" defer></script>
 </head>
-<body>
-    <!-- 顶栏导航 -->
-    <header class="container-fluid site-header">
-        <nav class="container">
-            <ul>
-                <li>
-                    <a href="/" class="brand"><strong>🏛️ 架构平台</strong></a>
-                </li>
-            </ul>
-            <ul class="nav-links">
-                <li><a href="/">总览</a></li>
-                <li><a href="/components">组件</a></li>
-                <li><a href="/requirements">需求</a></li>
-                <li><a href="/doubt">验证</a></li>
-                <li><a href="/literature">文献</a></li>
-                <li><a href="/audit">自审</a></li>
-                <li><a href="/feedbacks">反馈</a></li>
-                <li><a href="/deployments">部署</a></li>
-                <li>
-                    <form role="search" action="/search" method="get" style="margin: 0;">
-                        <input
-                            type="search"
-                            name="q"
-                            placeholder="搜索组件 / 版本 / 反馈..."
-                            value="{{ request.query_params.get('q', '') }}"
-                            aria-label="搜索">
-                    </form>
-                </li>
-                <li>
-                    <a href="/docs" target="_blank" rel="noopener" class="secondary">API</a>
-                </li>
-            </ul>
-        </nav>
+<body class="arch-mode">
+    <!-- 顶栏导航(drafting sheet 风格,替代 PicoCSS site-header) -->
+    <header class="arch-shell-header">
+        <div class="arch-shell-row">
+            <a href="/" class="arch-brand">
+                🏛 架构平台 <span class="arch-brand-stamp">Arch.Platform</span>
+            </a>
+            <nav class="arch-shell-nav" aria-label="主导航">
+                <a href="/components" {% if request.url.path.startswith('/components') %}aria-current="page"{% endif %}>组件</a>
+                <a href="/requirements" {% if request.url.path.startswith('/requirements') %}aria-current="page"{% endif %}>需求</a>
+                <a href="/doubt" {% if request.url.path.startswith('/doubt') %}aria-current="page"{% endif %}>验证</a>
+                <a href="/literature" {% if request.url.path.startswith('/literature') %}aria-current="page"{% endif %}>文献</a>
+                <a href="/audit" {% if request.url.path.startswith('/audit') %}aria-current="page"{% endif %}>自审</a>
+                <a href="/feedbacks" {% if request.url.path.startswith('/feedbacks') %}aria-current="page"{% endif %}>反馈</a>
+                <a href="/deployments" {% if request.url.path.startswith('/deployments') %}aria-current="page"{% endif %}>部署</a>
+                <a href="/dashboard" class="arch-naked" title="旧版 dashboard 备查" style="font-size:0.7em;color:var(--arch-ink-3);">v1</a>
+            </nav>
+            <div class="arch-shell-search">
+                <form role="search" action="/search" method="get" style="margin:0;display:flex;gap:0.5rem;">
+                    <input
+                        type="search"
+                        name="q"
+                        placeholder="搜索组件 / 版本 / 反馈..."
+                        value="{{ request.query_params.get('q', '') }}"
+                        aria-label="搜索">
+                </form>
+                <a href="/docs" target="_blank" rel="noopener" class="arch-naked" style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:var(--arch-ink-2);text-decoration:none;border:1px solid var(--arch-rule);padding:2px 6px;">API</a>
+            </div>
+        </div>
     </header>
 
     <!-- 主内容 -->
-    <main class="container">
+    <main class="arch-main">
         {% block content %}{% endblock %}
     </main>
 
     <!-- 页脚 -->
-    <footer class="container site-footer">
-        <small>
-            架构平台 · CLAUDE.md 资产/反馈/复用原则 ·
+    <footer class="arch-shell-footer">
+        <div>
+            架构平台 · CLAUDE.md 资产/反馈/复用原则 · drafting sheet v2(2026-06-24)
+        </div>
+        <div>
             <a href="/healthz">健康</a> ·
-            <a href="/docs" target="_blank" rel="noopener">API</a>
-        </small>
+            <a href="/docs" target="_blank" rel="noopener">API</a> ·
+            <a href="https://github.com/AndyWongWithAI/Architecture-Platform" target="_blank" rel="noopener">源码</a>
+        </div>
     </footer>
 
     <!-- Mermaid 10(REQ-a77efd18 架构图渲染)— defer 避免阻塞渲染 -->

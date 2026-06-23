@@ -5,12 +5,13 @@
 {% macro render_node(node, indent=0) %}
 {% set comp = node.component %}
 {% if comp %}
-<li>
-    {% if comp.atomic %}🟢{% else %}🔵{% endif %}
-    <a href="/components/{{ comp.name }}"><code>{{ comp.name }}</code></a>
-    <small class="secondary">({{ comp.layer }})</small>
+<li style="padding: var(--arch-s-2) 0; border-bottom: 1px solid var(--arch-rule-soft);">
+    <span class="arch-row-num" style="margin-right: 0.5rem;">L{{ indent + 1 }}</span>
+    {% if comp.atomic %}<span class="arch-chip" data-tone="phosphor">原子</span>{% else %}<span class="arch-chip" data-tone="brass">复合</span>{% endif %}
+    <a href="/components/{{ comp.name }}" style="font-family:'JetBrains Mono', monospace;">{{ comp.name }}</a>
+    <span class="arch-muted">({{ comp.layer | layer_zh }})</span>
     {% if node.children %}
-    <ul>
+    <ul style="list-style: none; padding-left: var(--arch-s-5); margin: var(--arch-s-2) 0 0 0;">
         {% for child in node.children %}
             {{ render_node(child, indent + 1) }}
         {% endfor %}
@@ -21,14 +22,18 @@
 {% endmacro %}
 
 {% block content %}
-<hgroup>
-    <h1>依赖树: {{ root_name }}</h1>
-    <p>递归展开 <code>composed_of</code>,展示组件 + 子组件 + 孙子组件层级</p>
-</hgroup>
+<div class="arch-title">
+    <h1>依赖树</h1>
+    <div class="arch-title-meta">
+        <code>{{ root_name }}</code><br>
+        <span style="color:var(--arch-ink-3);">递归展开 composed_of</span>
+    </div>
+</div>
 
-<article>
+<article class="arch-card" data-tone="phosphor">
+    <h4>🌳 依赖层级</h4>
     {% if tree %}
-    <ul>
+    <ul style="list-style: none; padding-left: 0; margin: 0;">
         {{ render_node(tree) }}
     </ul>
     {% else %}

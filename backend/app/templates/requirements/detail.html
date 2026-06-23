@@ -1,42 +1,65 @@
 {% extends "base.html" %}
 {% block title %}需求详情{% endblock %}
 {% block content %}
-<article>
-    <header>
-        <div class="grid">
-            <h1 style="grid-column: span 2;">{{ req.title }}</h1>
-            <span class="contrast"><small>{{ req.id[:8] }}</small></span>
-        </div>
-        <p>
-            <span class="{{ req.priority | req_priority_color }}"><strong>{{ req.priority }}</strong></span>
-            · {{ req.type | req_type_zh }}
-            · {{ req.status | req_status_zh }}
-            {% if req.assignee %}· @{{ req.assignee }}{% endif %}
-            {% if req.component_id %}· <a href="/components/{{ req.component_id }}">组件</a>{% endif %}
-        </p>
-        <p>
-            <a href="/requirements/{{ req.id }}/edit" role="button" class="primary">✏️ 编辑需求</a>
-            {% if req.status == 'draft' %}
-            <small> · title 可编辑</small>
-            {% else %}
-            <small> · title 已锁定(仅 draft 可改)</small>
-            {% endif %}
-        </p>
-    </header>
+<div class="arch-title">
+    <h1>{{ req.title }}</h1>
+    <div class="arch-title-meta">
+        <span class="arch-title-id">{{ req.id[:8] }}</span><br>
+        <a href="/requirements/{{ req.id }}/edit" role="button" class="primary" style="margin-top: 0.5rem;">✏️ 编辑</a>
+    </div>
+</div>
 
-    {% if req.description %}
+{# 状态条 #}
+<article class="arch-card" style="padding: var(--arch-s-3) var(--arch-s-4);">
+    <div class="arch-kvgrid-3" style="grid-template-columns: repeat(4, 1fr);">
+        <div class="arch-kv" style="border-top: none; padding-top: 0;">
+            <span class="arch-kv-label">优先级</span>
+            <span class="arch-kv-value">
+                <span class="arch-chip" data-tone="{% if req.priority == 'P0' %}error{% elif req.priority == 'P1' %}warn{% else %}muted{% endif %}">{{ req.priority }}</span>
+            </span>
+        </div>
+        <div class="arch-kv" style="border-top: none; padding-top: 0;">
+            <span class="arch-kv-label">类型</span>
+            <span class="arch-kv-value" style="font-size: var(--arch-fs-md);">{{ req.type | req_type_zh }}</span>
+        </div>
+        <div class="arch-kv" style="border-top: none; padding-top: 0;">
+            <span class="arch-kv-label">状态</span>
+            <span class="arch-kv-value">
+                <span class="arch-chip" data-tone="phosphor">{{ req.status | req_status_zh }}</span>
+            </span>
+        </div>
+        <div class="arch-kv" style="border-top: none; padding-top: 0;">
+            <span class="arch-kv-label">负责人</span>
+            <span class="arch-kv-value" style="font-size: var(--arch-fs-md);">
+                {% if req.assignee %}<code>@{{ req.assignee }}</code>{% else %}<span class="arch-muted">—</span>{% endif %}
+            </span>
+        </div>
+    </div>
+    {% if req.component_id %}
+    <p style="margin: var(--arch-s-3) 0 0 0; font-size: 0.85rem; color: var(--arch-ink-2);">
+        关联组件:<a href="/components/{{ req.component_id }}">{{ req.component_id }}</a>
+    </p>
+    {% endif %}
+</article>
+
+{% if req.description %}
+<article class="arch-card" data-tone="accent">
     <h4>📝 描述</h4>
     <p>{{ req.description }}</p>
-    {% endif %}
+</article>
+{% endif %}
 
-    {% if req.user_story %}
+{% if req.user_story %}
+<article class="arch-card" data-tone="brass">
     <h4>👤 用户故事</h4>
-    <blockquote>{{ req.user_story }}</blockquote>
-    {% endif %}
+    <blockquote style="border-left: 3px solid var(--arch-brass); padding-left: var(--arch-s-3); margin: 0; color: var(--arch-ink); font-style: italic;">{{ req.user_story }}</blockquote>
+</article>
+{% endif %}
 
-    {% if req.acceptance_criteria %}
-    <h4>✅ 验收标准</h4>
-    <ul>
+{% if req.acceptance_criteria %}
+<article class="arch-card" data-tone="phosphor">
+    <h4>✅ 验收标准 <span class="arch-muted" style="font-size:0.85rem;">({{ req.acceptance_criteria | length }} 项)</span></h4>
+    <ol style="margin: 0; padding-left: var(--arch-s-5); line-height: 1.7;">
         {% for ac in req.acceptance_criteria %}
         <li>
             <strong>Given</strong> {{ ac.given }}<br>
@@ -44,64 +67,83 @@
             <strong>Then</strong> {{ ac.then }}
         </li>
         {% endfor %}
-    </ul>
-    {% endif %}
+    </ol>
+</article>
+{% endif %}
 
-    {% if req.nfr %}
+{% if req.nfr %}
+<article class="arch-card">
     <h4>⚙️ 非功能需求</h4>
-    <table>
+    <table class="arch-table">
+        <tbody>
         {% for k, v in req.nfr.items() %}
-        <tr><th>{{ k }}</th><td>{{ v }}</td></tr>
+            <tr><th style="width: 12rem; color: var(--arch-ink-2);">{{ k }}</th><td>{{ v }}</td></tr>
         {% endfor %}
+        </tbody>
     </table>
-    {% endif %}
+</article>
+{% endif %}
 
-    {% if req.tags %}
+{% if req.tags %}
+<article class="arch-card" data-tone="muted">
     <h4>🏷️ 标签</h4>
-    <p>{% for t in req.tags %}<span class="secondary"><code>{{ t }}</code></span> {% endfor %}</p>
-    {% endif %}
+    <p>{% for t in req.tags %}<span class="arch-chip" data-tone="muted">{{ t }}</span> {% endfor %}</p>
+</article>
+{% endif %}
 
-    <!-- 状态推进表单 -->
+{# 状态推进表单(HTMX 仍走原路径) #}
+<article class="arch-card" data-tone="warn">
     <h4>🔄 推进状态</h4>
     <form hx-post="/requirements/{{ req.id }}/patch" hx-target="#status-msg" hx-swap="innerHTML">
-        <div class="grid">
-            <select name="status">
-                <option value="draft" {% if req.status == 'draft' %}selected{% endif %}>草稿</option>
-                <option value="triaged" {% if req.status == 'triaged' %}selected{% endif %}>已分诊</option>
-                <option value="scheduled" {% if req.status == 'scheduled' %}selected{% endif %}>已排期</option>
-                <option value="in_progress" {% if req.status == 'in_progress' %}selected{% endif %}>进行中</option>
-                <option value="implemented" {% if req.status == 'implemented' %}selected{% endif %}>已实现</option>
-                <option value="verified" {% if req.status == 'verified' %}selected{% endif %}>已验证</option>
-                <option value="complete" {% if req.status == 'complete' %}selected{% endif %}>已完成</option>
-                <option value="rejected" {% if req.status == 'rejected' %}selected{% endif %}>已拒绝</option>
-                <option value="cancelled" {% if req.status == 'cancelled' %}selected{% endif %}>已取消</option>
-            </select>
-            <input type="text" name="assignee" value="{{ req.assignee or '' }}" placeholder="负责人">
-            <input type="text" name="description" value="{{ req.description or '' }}" placeholder="描述(转 rejected/cancelled 必填)">
-            <button type="submit">推进</button>
+        <div class="arch-action" style="border: none; padding: 0; margin: 0;">
+            <div class="arch-action-field">
+                <span>新状态</span>
+                <select name="status">
+                    <option value="draft" {% if req.status == 'draft' %}selected{% endif %}>草稿</option>
+                    <option value="triaged" {% if req.status == 'triaged' %}selected{% endif %}>已分诊</option>
+                    <option value="scheduled" {% if req.status == 'scheduled' %}selected{% endif %}>已排期</option>
+                    <option value="in_progress" {% if req.status == 'in_progress' %}selected{% endif %}>进行中</option>
+                    <option value="implemented" {% if req.status == 'implemented' %}selected{% endif %}>已实现</option>
+                    <option value="verified" {% if req.status == 'verified' %}selected{% endif %}>已验证</option>
+                    <option value="complete" {% if req.status == 'complete' %}selected{% endif %}>已完成</option>
+                    <option value="rejected" {% if req.status == 'rejected' %}selected{% endif %}>已拒绝</option>
+                    <option value="cancelled" {% if req.status == 'cancelled' %}selected{% endif %}>已取消</option>
+                </select>
+            </div>
+            <div class="arch-action-field">
+                <span>负责人</span>
+                <input type="text" name="assignee" value="{{ req.assignee or '' }}" placeholder="@用户名">
+            </div>
+            <div class="arch-action-field">
+                <span>描述(rejected/cancelled 必填)</span>
+                <input type="text" name="description" value="{{ req.description or '' }}" placeholder="转 rejected/cancelled 必填">
+            </div>
+            <div class="arch-action-field" style="flex: 0 0 auto; align-self: flex-end;">
+                <button type="submit">推进</button>
+            </div>
         </div>
     </form>
-    <div id="status-msg"></div>
+    <div id="status-msg" style="margin-top: var(--arch-s-3);"></div>
+</article>
 
-    <!-- 追溯链:关联 feedback -->
-    {% if feedbacks %}
-    <h4>🔗 关联反馈({{ feedbacks | length }} 个)</h4>
-    <ul>
+{# 追溯链 #}
+{% if feedbacks %}
+<article class="arch-card" data-tone="brass">
+    <h4>🔗 关联反馈 <span class="arch-muted" style="font-size:0.85rem;">({{ feedbacks | length }} 个)</span></h4>
+    <ul style="margin: 0; padding-left: var(--arch-s-5); line-height: 1.7;">
         {% for fb in feedbacks %}
         <li>
-            <a href="/feedbacks/{{ fb.id }}">{{ fb.bug_summary | truncate(60) }}</a>
-            <span class="secondary">({{ fb.severity | severity_zh }} / {{ fb.status | status_zh }})</span>
+            <a href="/feedbacks/{{ fb.id }}">{{ fb.bug_summary | truncate(80) }}</a>
+            <span class="arch-muted">({{ fb.severity | severity_zh }} / {{ fb.status | status_zh }})</span>
         </li>
         {% endfor %}
     </ul>
-    {% endif %}
-
-    <p>
-        <small>
-            创建于 {{ req.created_at | format_dt }}
-            {% if req.decided_at %}· 决策于 {{ req.decided_at | format_dt }}{% endif %}
-            {% if req.closed_at %}· 关闭于 {{ req.closed_at | format_dt }}{% endif %}
-        </small>
-    </p>
 </article>
+{% endif %}
+
+<p style="font-size: 0.85rem; color: var(--arch-ink-2); margin-top: var(--arch-s-5);">
+    创建于 {{ req.created_at | format_dt }}
+    {% if req.decided_at %}· 决策于 {{ req.decided_at | format_dt }}{% endif %}
+    {% if req.closed_at %}· 关闭于 {{ req.closed_at | format_dt }}{% endif %}
+</p>
 {% endblock %}

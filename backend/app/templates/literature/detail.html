@@ -1,44 +1,41 @@
 {% extends "base.html" %}
 {% block title %}{{ lit.title }}{% endblock %}
 {% block content %}
-<article>
-    <header>
-        <h1>📄 {{ lit.title }}</h1>
-        <p>
-            {% if lit.authors %}<strong>作者:</strong>{{ lit.authors }}{% endif %}
-            {% if lit.source %} · <small>{{ lit.source }}</small>{% endif %}
-        </p>
-        <p>
-            <a href="{{ lit.url }}" target="_blank" rel="noopener noreferrer" role="button">
-                🔗 打开原文
-            </a>
-            <a href="/literature/{{ lit.id }}/edit" role="button" class="secondary">✏️ 编辑</a>
-        </p>
-    </header>
+<div class="arch-title">
+    <h1>{{ lit.title }}</h1>
+    <div class="arch-title-meta">
+        <a href="{{ lit.url }}" target="_blank" rel="noopener noreferrer" class="primary" style="font-size: 0.85rem;">🔗 打开原文</a><br>
+        <a href="/literature/{{ lit.id }}/edit" style="font-size: 0.85rem; color: var(--arch-ink-2);">✏️ 编辑</a>
+    </div>
+</div>
 
-    {% if lit.summary %}
+<article class="arch-card" data-tone="brass" style="padding: var(--arch-s-3) var(--arch-s-4);">
+    <dl class="arch-kvgrid">
+        {% if lit.authors %}<dt>作者</dt><dd>{{ lit.authors }}</dd>{% endif %}
+        {% if lit.source %}<dt>来源</dt><dd>{{ lit.source }}</dd>{% endif %}
+        <dt>登记人</dt><dd><code>{{ lit.added_by or '—' }}</code></dd>
+        <dt>登记时间</dt><dd>{{ lit.added_at | format_dt }}</dd>
+        {% if lit.is_archived %}<dt>状态</dt><dd><span class="arch-chip" data-tone="warn">已归档</span></dd>{% endif %}
+    </dl>
+</article>
+
+{% if lit.summary %}
+<article class="arch-card" data-tone="accent">
     <h4>📝 摘要</h4>
-    <blockquote>{{ lit.summary }}</blockquote>
-    {% endif %}
+    <blockquote style="border-left: 3px solid var(--arch-accent); padding-left: var(--arch-s-3); margin: 0; color: var(--arch-ink); font-style: italic;">{{ lit.summary }}</blockquote>
+</article>
+{% endif %}
 
-    {% if lit.tags %}
+{% if lit.tags %}
+<article class="arch-card" data-tone="muted">
     <h4>🏷️ 标签</h4>
     <p>
         {% for t in lit.tags %}
-        <a href="/literature?tag={{ t }}" style="text-decoration: none;">
-            <span class="{{ t | lit_tag_color }}"><code>{{ t }}</code></span>
+        <a href="/literature?tag={{ t }}" style="text-decoration: none; margin-right: 0.25rem;">
+            <span class="arch-chip" data-tone="brass">{{ t }}</span>
         </a>
         {% endfor %}
     </p>
-    {% endif %}
-
-    {% if lit.added_by %}
-    <p>
-        <small>
-            由 <code>{{ lit.added_by }}</code> 登记于 {{ lit.added_at | format_dt }}
-            {% if lit.is_archived %} · <em>已归档</em>{% endif %}
-        </small>
-    </p>
-    {% endif %}
 </article>
+{% endif %}
 {% endblock %}
