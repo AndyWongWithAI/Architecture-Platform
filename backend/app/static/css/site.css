@@ -1,0 +1,162 @@
+/* =============================================================================
+ * site.css — 架构平台全局站点样式
+ * REQ-010fb7b5 全站优化沉淀的资产。
+ *
+ * ⚠️ 这是「视觉契约 / token 层」文件,不是页面具体样式:
+ *   - 只定义:全局色板 / 间距 token / icon 尺寸 / 跨页通用组件样式
+ *     (顶栏 / 面包屑 / 空状态 / 卡片微调)
+ *   - 不定义:单个页面的布局 / 局部修饰(那些写在对应 partial 或 inline style 里)
+ *   - 不引入:新依赖 / 新色 hex / icon 库 / CSS 框架
+ *
+ * 设计原则(对齐 CLAUDE.md 一致性 + 复用 + 定位稳定性):
+ *   - 全部使用 PicoCSS --pico-* 变量,不写死颜色
+ *   - 复用 tabs.css 的命名风格(class 前缀:site-*)
+ *   - 后续新增 UI 改动优先扩展这里的 token,不要在 partial 内联颜色
+ *
+ * 维护规则:
+ *   - 改 site.css = 改契约,需评估存量页面
+ *   - 加新 token = 在 :root 下加新 --site-* 变量,不要散落
+ *   - 加新组件样式 = 用 .site-<component> 命名,跟下方组件样式并列
+ * ============================================================================= */
+
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * 1. Token 层:全局色板 / 间距 / icon 尺寸
+ *    后续样式只用 --site-* 或 --pico-* 变量,不写死具体值
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+:root {
+    /* 副文本色:说明文字 / 面包屑 / 空状态描述等 */
+    --site-color-text-secondary: var(--pico-muted-color);
+
+    /* section 间距:页面主要 section 之间的标准间距 */
+    --site-spacing-section: 2rem;
+
+    /* icon 尺寸 token:空状态 / 列表前缀 / 标题前缀 */
+    --site-icon-size-sm: 1.25rem;
+    --site-icon-size-md: 2rem;
+    --site-icon-size-lg: 4rem;
+}
+
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * 2. 全局元素微调:section 间距 / 主内容卡片
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+main.container > section + section,
+main.container > section + article,
+main.container > article + section {
+    margin-top: var(--site-spacing-section);
+}
+
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * 3. 面包屑(.site-breadcrumb)
+ *    对应 partial: backend/app/templates/_components/breadcrumb.html
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+.site-breadcrumb {
+    margin: 0 0 1rem 0;
+    font-size: 0.9rem;
+    color: var(--site-color-text-secondary);
+}
+
+.site-breadcrumb ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    align-items: center;
+}
+
+.site-breadcrumb li {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.site-breadcrumb a {
+    color: var(--pico-primary);
+    text-decoration: none;
+}
+
+.site-breadcrumb a:hover {
+    text-decoration: underline;
+}
+
+.site-breadcrumb [aria-current="page"] {
+    color: var(--site-color-text-secondary);
+    font-weight: 500;
+}
+
+.site-breadcrumb-sep {
+    color: var(--pico-muted-border-color);
+    user-select: none;
+}
+
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * 4. 空状态(.site-empty-state)
+ *    对应 partial: backend/app/templates/_components/empty-state.html
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+.site-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: var(--site-spacing-section) 1rem;
+    border: 1px dashed var(--pico-muted-border-color);
+    border-radius: var(--pico-border-radius);
+    background: var(--pico-card-background-color);
+    margin: var(--site-spacing-section) 0;
+}
+
+.site-empty-state-icon {
+    font-size: var(--site-icon-size-lg);
+    line-height: 1;
+    margin-bottom: 0.75rem;
+    opacity: 0.85;
+}
+
+.site-empty-state-title {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.25rem;
+    color: var(--pico-color);
+}
+
+.site-empty-state-desc {
+    margin: 0 0 1.25rem 0;
+    color: var(--site-color-text-secondary);
+    max-width: 36rem;
+}
+
+.site-empty-state-cta {
+    margin: 0;
+}
+
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * 5. 顶栏微调(挂在 custom.css 已有的 .site-header 上,只补 site-* 类)
+ *    不重定义 .site-header,保持 custom.css 单点维护
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+.site-header nav ul.nav-links {
+    /* site.css 挂载点:顶栏链接组复用 token */
+    gap: var(--site-spacing-section, 0.5rem);
+}
+
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * 6. 移动端响应式(token 化的间距在小屏自动缩小)
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+    :root {
+        --site-spacing-section: 1.25rem;
+        --site-icon-size-lg: 3rem;
+    }
+}
