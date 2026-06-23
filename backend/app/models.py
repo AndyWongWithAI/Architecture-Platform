@@ -350,3 +350,56 @@ class Literature(Base):
     added_by = Column(String(100), nullable=True)
     # 软删除独立 bool(对齐 Requirement.is_archived,2026-06-23)
     is_archived = Column(Boolean, default=False, nullable=False)
+
+
+# ===== Audit Module(REQ-7328c640, 2026-06-23 每日 04:00 自审)=====
+# 数据源:`~/.claude/skills/audit/scripts/scan.py --json`
+# 由 deploy/audit.sh 在 #1 上以 cron 方式每天 04:00 触发,POST 到 /api/v1/audit/runs。
+# 这里只落地 AuditRun + AuditFinding 两张表,不对 9 原则做语义分析(那是 scan.py 的职责)。
+
+
+class AuditRun(Base):
+    """一次 audit 扫描的运行记录(对应 scan.py --json 的顶层 payload)"""
+    __tablename__ = "audit_runs"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    started_at = Column(DateTime, default=now_utc, nullable=False)
+    finished_at = Column(DateTime, nullable=True)
+    scope = Column(String(50), nullable=False)            # "all" / "skills" / "specs" / ...
+    gate = Column(String(20), nullable=False)             # "soft" / "hard"
+    severity_min = Column(String(20), nullable=False)     # "info" / "warn" / "blocker"
+    status = Column(String(20), default="running", nullable=False)  # "running" / "completed" / "failed"
+
+    # scan.py summary 直接落地(便于快速看趋势,无需 join findings)
+    total = Column(Integer, default=0, nullable=False)
+    blocker_count = Column(Integer, default=0, nullable=False)
+    warn_count = Column(Integer, default=0, nullable=False)
+    info_count = Column(Integer, default=0, nullable=False)
+
+    error_message = Column(Text, nullable=True)
+    # scan.py 输出里的 ts 字段(扫描器侧时间戳,Asia/Shanghai,ISO8601)
+    scanner_ts = Column(String(64), nullable=True)
+
+    findings = relationship(
+        "AuditFinding",
+        back_populates="run",
+        cascade="all, delete-orphan",
+        order_by="AuditFinding.id",
+    )
+
+
+class AuditFinding(Base):
+    """audit run 下的一条 finding(对应 scan.py --json 的 findings[i])"""
+    __tablename__ = "audit_findings"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    run_id = Column(String, ForeignKey("audit_runs.id"), nullable=False, index=True)
+    principle = Column(String(50), nullable=False, index=True)   # 9 原则之一
+    check = Column(String(100), nullable=False)                  # check 名(如 quality_over_speed)
+    severity = Column(String(20), nullable=False, index=True)    # "info" / "warn" / "blocker"
+    scope = Column(String(50), nullable=True)                     # scope 名(可空)
+    target = Column(String(500), nullable=True)                   # 文件路径 / 行号等
+    detail = Column(Text, nullable=True)                          # 详细描述
+    fingerprint = Column(String(64), nullable=True, index=True)   # 去重指纹
+
+    run = relationship("AuditRun", back_populates="findings")

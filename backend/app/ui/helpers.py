@@ -187,6 +187,20 @@ REQ_PRIORITY_COLOR = {
     "P3": "pico-color-grey-500",
 }
 
+# Audit Module(REQ-7328c640, 2026-06-23)
+# audit finding severity 三档:info / warn / blocker
+AUDIT_SEVERITY_COLOR = {
+    "info": "pico-color-blue-550",
+    "warn": "pico-color-amber-450",
+    "blocker": "pico-color-red-650",
+}
+
+AUDIT_SEVERITY_ZH = {
+    "info": "提示",
+    "warn": "警告",
+    "blocker": "阻塞",
+}
+
 REQ_PRIORITY_ZH = {"P0": "P0 紧急", "P1": "P1 高", "P2": "P2 普通", "P3": "P3 低"}
 
 REQ_TYPE_ZH = {
@@ -225,6 +239,18 @@ def req_type_zh(t: Optional[str]) -> str:
 
 def req_status_zh(s: Optional[str]) -> str:
     return REQ_STATUS_ZH.get(s or "", s or "")
+
+
+# ——— Audit Module(REQ-7328c640)———
+
+def audit_severity_color(severity: Optional[str]) -> str:
+    """audit finding severity → PicoCSS 颜色 class"""
+    return AUDIT_SEVERITY_COLOR.get(severity or "", "")
+
+
+def audit_severity_zh(severity: Optional[str]) -> str:
+    """audit finding severity 中文化(info → 提示 / warn → 警告 / blocker → 阻塞)"""
+    return AUDIT_SEVERITY_ZH.get(severity or "", severity or "")
 
 
 def layer_zh(layer: Optional[str]) -> str:
@@ -272,3 +298,6 @@ def register_filters(env):
     env.filters["req_status_zh"] = req_status_zh
     # Literature(REQ-7c4bcb32,2026-06-23)
     env.filters["lit_tag_color"] = lit_tag_color
+    # Audit Module(REQ-7328c640)
+    env.filters["audit_severity_color"] = audit_severity_color
+    env.filters["audit_severity_zh"] = audit_severity_zh

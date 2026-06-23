@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}审计{% endblock %}
+{% block content %}
+<article>
+    <header>
+        <h1>🛡️ 自审记录 <small>(共 {{ total }} 次)</small></h1>
+        <p>
+            每日 04:00(cron)调用
+            <code>~/.claude/skills/audit/scripts/scan.py --json</code>
+            写入本表。<a href="/audit?severity_min=blocker">查看 blocker 历史 →</a>
+        </p>
+    </header>
+
+    <!-- 过滤器 -->
+    <form method="get" action="/audit">
+        <div class="grid">
+            <select name="status" onchange="this.form.submit()">
+                <option value="">所有状态</option>
+                {% for s in ['running','completed','failed'] %}
+                <option value="{{ s }}" {% if filters.status == s %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+            </select>
+            <select name="severity_min" onchange="this.form.submit()">
+                <option value="">所有严重度</option>
+                {% for s in ['blocker','warn','info'] %}
+                <option value="{{ s }}" {% if filters.severity_min == s %}selected{% endif %}>
+                    {{ s | audit_severity_zh }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
+
+    {% if items %}
+    <figure>
+        <table role="grid">
+            <thead>
+                <tr>
+                    <th>扫描时间</th>
+                    <th>scope</th>
+                    <th>gate</th>
+                    <th>总数</th>
+                    <th>blocker</th>
+                    <th>warn</th>
+                    <th>info</th>
+                    <th>状态</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in items %}
+                <tr>
+                    <td>
+                        <a href="/audit/{{ r.id }}">{{ r.started_at | format_dt }}</a>
+                        <br>
+                        <small class="secondary">{{ r.id[:8] }}</small>
+                    </td>
+                    <td><code>{{ r.scope }}</code></td>
+                    <td><code>{{ r.gate }}</code></td>
+                    <td><strong>{{ r.total }}</strong></td>
+                    <td>
+                        {% if r.blocker_count > 0 %}
+                            <span class="pico-color-red-650"><strong>{{ r.blocker_count }}</strong></span>
+                        {% else %}
+                            <span class="secondary">0</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if r.warn_count > 0 %}
+                            <span class="pico-color-amber-450"><strong>{{ r.warn_count }}</strong></span>
+                        {% else %}
+                            <span class="secondary">0</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if r.info_count > 0 %}
+                            <span class="pico-color-blue-550">{{ r.info_count }}</span>
+                        {% else %}
+                            <span class="secondary">0</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="badge">
+                            {% if r.status == 'completed' %}✅ {{ r.status }}
+                            {% elif r.status == 'failed' %}❌ {{ r.status }}
+                            {% else %}⏳ {{ r.status }}
+                            {% endif %}
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </figure>
+    {% else %}
+    <p><em>暂无 audit run。</em>每日 04:00 cron 启动后会写入第一条记录。</p>
+    {% endif %}
+</article>
+
+<hr>
+<p>
+    <small>
+        💡 手动触发测试:
+        <code>python3 ~/.claude/skills/audit/scripts/scan.py --scope=skills --json | curl -X POST -H "X-API-Key: $ARCH_PLATFORM_API_KEY" -H "Content-Type: application/json" -d @- http://127.0.0.1:8088/api/v1/audit/runs</code>
+    </small>
+</p>
+{% endblock %}

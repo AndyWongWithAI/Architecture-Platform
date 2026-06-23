@@ -392,3 +392,76 @@ class LiteratureOut(LiteratureBase, ORMBase):
 class LiteratureList(BaseModel):
     items: List[LiteratureOut]
     total: int
+
+
+# ===== Audit Module(REQ-7328c640, 2026-06-23)=====
+# 数据契约对齐 scan.py --json 输出:
+#   { ts, scope, gate, severity_min, summary: {total, blocker, warn, info}, findings: [...] }
+# scan.py 输出里 findings 元素字段:
+#   { principle, check, severity, scope, target, detail, fingerprint }
+
+
+class AuditFindingCreate(BaseModel):
+    """单条 finding(POST body 用)"""
+    principle: str = Field(..., max_length=50)
+    check: str = Field(..., max_length=100)
+    severity: str = Field(..., pattern=r"^(info|warn|blocker)$")
+    scope: Optional[str] = Field(None, max_length=50)
+    target: Optional[str] = Field(None, max_length=500)
+    detail: Optional[str] = None
+    fingerprint: Optional[str] = Field(None, max_length=64)
+
+
+class AuditFindingOut(AuditFindingCreate, ORMBase):
+    id: str
+    run_id: str
+
+
+class AuditRunSummary(BaseModel):
+    """scan.py --json 的 summary 字段"""
+    total: int = 0
+    blocker: int = 0
+    warn: int = 0
+    info: int = 0
+
+
+class AuditRunCreate(BaseModel):
+    """POST /api/v1/audit/runs 的请求体(直接对齐 scan.py --json 顶层)"""
+    ts: Optional[str] = None
+    scope: str = Field(..., max_length=50)
+    gate: str = Field(..., pattern=r"^(soft|hard)$")
+    severity_min: str = Field(..., pattern=r"^(info|warn|blocker)$")
+    summary: AuditRunSummary = Field(default_factory=AuditRunSummary)
+    findings: List[AuditFindingCreate] = []
+
+
+class AuditRunOut(ORMBase):
+    """单条 audit run 详情(不含 findings,避免大 payload)"""
+    id: str
+    started_at: datetime
+    finished_at: Optional[datetime] = None
+    scope: str
+    gate: str
+    severity_min: str
+    status: str
+    total: int = 0
+    blocker_count: int = 0
+    warn_count: int = 0
+    info_count: int = 0
+    error_message: Optional[str] = None
+    scanner_ts: Optional[str] = None
+
+
+class AuditRunDetail(AuditRunOut):
+    """含 findings[] 的完整 payload"""
+    findings: List[AuditFindingOut] = []
+
+
+class AuditRunList(BaseModel):
+    items: List[AuditRunOut]
+    total: int
+
+
+class AuditFindingList(BaseModel):
+    items: List[AuditFindingOut]
+    total: int
