@@ -250,6 +250,8 @@ class RequirementUpdate(BaseModel):
     assignee: Optional[str] = None
     due_date: Optional[datetime] = None
     tags: Optional[List[str]] = None
+    # REQ-69212ee4:verified → triaged/rejected 时必填的打回原因(≥10 字符)
+    reason: Optional[str] = Field(None, min_length=10, max_length=1000)
 
 
 class RequirementOut(ORMBase):
