@@ -4,20 +4,25 @@
 <article>
     <header>
         <h1>📋 需求列表 <small>(共 {{ total }} 个)</small></h1>
-        <p>
-            <a href="/requirements/new" role="button" class="primary">+ 登记新需求</a>
-        </p>
     </header>
 
-    <!-- 过滤器 -->
+    {# ——— A-2 (REQ-eab024a9):按 SDLC 阶段折叠 tab ——— #}
+    {# 9 个状态(draft/triaged/scheduled/in_progress/implemented/verified/ #}
+    {# complete/rejected/cancelled)折叠成 5 个一级 tab;复用 A-1 partial + CSS。 #}
+    <div class="list-header">
+        <div class="list-tabs">
+            {% include "_components/tabs.html" with context %}
+        </div>
+        <div class="list-actions">
+            <a href="/requirements/new" role="button" class="primary">+ 登记新需求</a>
+        </div>
+    </div>
+
+    {# ——— 二级过滤(优先级/类型/负责人) ——— #}
+    {# tab 切换的当前值也带过去,二级过滤在 tab 内生效 #}
     <form method="get" action="/requirements">
+        <input type="hidden" name="tab" value="{{ active_tab }}">
         <div class="grid">
-            <select name="status" onchange="this.form.submit()">
-                <option value="">所有状态</option>
-                {% for s in ['draft','triaged','scheduled','in_progress','implemented','verified','complete','rejected','cancelled'] %}
-                <option value="{{ s }}" {% if filters.status == s %}selected{% endif %}>{{ s | req_status_zh }}</option>
-                {% endfor %}
-            </select>
             <select name="priority" onchange="this.form.submit()">
                 <option value="">所有优先级</option>
                 {% for p in ['P0','P1','P2','P3'] %}
