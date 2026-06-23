@@ -15,6 +15,19 @@
     </div>
     <div class="list-actions">
         <a href="/components/new" role="button" class="secondary">+ 新建组件</a>
+        {# REQ-f740a3be:显式开关 show archived,默认隐藏避免误以为正常组件 #}
+        <form method="get" action="/components" style="display:inline-block; margin-left: 0.5rem; margin-bottom: 0;">
+            {% if filters.layer %}<input type="hidden" name="tab" value="{{ active_tab }}">{% endif %}
+            {% if filters.category %}<input type="hidden" name="category" value="{{ filters.category }}">{% endif %}
+            {% if filters.is_asset %}<input type="hidden" name="is_asset" value="{{ filters.is_asset }}">{% endif %}
+            {% if filters.q %}<input type="hidden" name="q" value="{{ filters.q }}">{% endif %}
+            <label style="display:inline-flex; align-items:center; gap:0.4rem; margin:0;">
+                <input type="checkbox" name="include_archived" value="true"
+                       {% if filters.include_archived == 'true' %}checked{% endif %}
+                       onchange="this.form.submit()">
+                <small>显示已归档</small>
+            </label>
+        </form>
     </div>
 </div>
 
@@ -52,6 +65,8 @@
             <th>分类</th>
             <th>资产</th>
             <th>形态</th>
+            {# REQ-f740a3be:已归档显式列,避免被误认为正常组件 #}
+            <th>归档</th>
         </tr>
     </thead>
     <tbody>
@@ -69,6 +84,13 @@
                 {% endif %}
             </td>
             <td><small>{{ c.distribution_form | form_label }}</small></td>
+            <td>
+                {% if c.is_archived %}
+                    <span class="badge badge-warning" title="已归档(软删除)">🗄 已归档</span>
+                {% else %}
+                    <small>-</small>
+                {% endif %}
+            </td>
         </tr>
     {% endfor %}
     </tbody>

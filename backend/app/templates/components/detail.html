@@ -15,6 +15,23 @@
     </p>
 </hgroup>
 
+{# REQ-f740a3be:归档组件显示横幅,告知用户该组件已被软删除 #}
+{% if c.is_archived %}
+<article style="border-left: 4px solid orange; background: rgba(255,165,0,0.06);">
+    <h4 style="margin-top:0;">🗄 此组件已归档</h4>
+    <p>归档后<strong>不可 update</strong>、<strong>不可被 composed_of 引用</strong>。
+       可通过下方「♻️ 恢复组件」按钮还原。</p>
+    {% set desc = c.description or '' %}
+    {% if 'archived_reason:' in desc %}
+        <p><small>归档原因:</small></p>
+        <pre><code>{{ desc.split('archived_reason:')[-1].strip() }}</code></pre>
+    {% endif %}
+    {% if c.archived_at %}
+        <p><small>归档时间:{{ c.archived_at | format_dt }}</small></p>
+    {% endif %}
+</article>
+{% endif %}
+
 <article>
     <h4>📌 定位</h4>
     <p>{{ c.positioning }}</p>
@@ -141,5 +158,72 @@
 <p>
     <a href="/components" role="button" class="secondary outline">← 返回列表</a>
     <a href="/components/{{ c.name }}/tree" role="button" class="secondary outline">依赖树</a>
+    {# REQ-f740a3be:delete/restore 互斥显示 — 已归档只能恢复,未归档只能删除 #}
+    {% if c.is_archived %}
+        <form method="post" action="/components/{{ c.name }}/restore" style="display:inline;">
+            <button type="submit" class="primary"
+                    onclick="return confirm('确认恢复组件 {{ c.name }}?恢复后将重新出现在列表中。')">
+                ♻️ 恢复组件
+            </button>
+        </form>
+    {% else %}
+        <button type="button" class="contrast outline"
+                onclick="document.getElementById('delete-dialog').showModal()">
+            🗑️ 删除组件
+        </button>
+    {% endif %}
 </p>
+
+{# REQ-f740a3be:PicoCSS 原生 <dialog> 收集删除原因 — 危险操作必须用 modal,不能直接 confirm #}
+{% if not c.is_archived %}
+<dialog id="delete-dialog">
+    <article>
+        <h4 style="margin-top:0;">🗑️ 确认删除组件</h4>
+        <p><strong>{{ c.name }}</strong> 将被软删除(<code>is_archived=true</code>),
+           不会从数据库物理移除。可通过「♻️ 恢复组件」按钮还原。</p>
+        <p><small>⚠️ 若该组件被其他组件 composed_of 引用,删除会被后端 409 拒绝,
+           需先解除依赖关系。</small></p>
+        <form method="post" action="/components/{{ c.name }}/delete" id="delete-form">
+            <label>
+                <small>删除原因(≥ 10 字符,会写入 description 末尾供审计)</small>
+                <textarea name="reason" required minlength="10" rows="3"
+                          placeholder="例如:此组件被替代 / 测试残留 / 项目废弃..."></textarea>
+            </label>
+            <footer>
+                <button type="button" class="secondary"
+                        onclick="document.getElementById('delete-dialog').close()">取消</button>
+                <button type="submit" class="contrast">确认删除</button>
+            </footer>
+        </form>
+    </article>
+</dialog>
+{# 监听 dialog 内 form submit,失败时 alert 错误(避免重定向走丢错误信息) #}
+<script>
+(function() {
+    var form = document.getElementById('delete-form');
+    if (!form) return;
+    form.addEventListener('submit', function(ev) {
+        // 兜底:浏览器原生 form submit 会走 server,服务器返回 JSON 错误时
+        // 浏览器会显示空白。这里我们用 fetch 拦截,失败时 alert + 阻止默认。
+        ev.preventDefault();
+        var fd = new FormData(form);
+        fetch(form.action, { method: 'POST', body: fd, redirect: 'manual' })
+            .then(function(r) {
+                // opaqueredirect / manual:302/303 → type='opaqueredirect' status=0
+                if (r.type === 'opaqueredirect' || r.status === 0 || (r.status >= 200 && r.status < 400)) {
+                    // 成功:浏览器自己 follow 之前的 303,或者服务器已重定向 → 走 list
+                    window.location.href = '/components';
+                } else {
+                    return r.json().then(function(j) {
+                        alert('删除失败: ' + (j.error || ('HTTP ' + r.status)));
+                    });
+                }
+            })
+            .catch(function(e) {
+                alert('请求失败: ' + e.message);
+            });
+    });
+})();
+</script>
+{% endif %}
 {% endblock %}
