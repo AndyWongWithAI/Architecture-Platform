@@ -105,9 +105,13 @@ def get_cmd(name, fmt):
 @click.option("--package-name", help="包名(用于 install_command)")
 @click.option("--install-command", help="一行安装命令")
 @click.option("--usage-example", help="一行使用示例")
+@click.option("--sub-layer", "sub_layer", type=click.Choice(["orchestration", "normal"]), help="ADR-0001:子层标记(orchestration/normal)")
+@click.option("--cross-cutting/--no-cross-cutting", "cross_cutting", default=False, help="ADR-0001:是否横切关注点")
+@click.option("--runtime-dependency", "runtime_dependency", help="ADR-0001:运行时依赖,格式 'name:constraint:relation' 逗号分隔(relation=orchestration|peer|deployment)")
 def create_cmd(name, title, positioning, category, layer, scope, is_asset,
                distribution_form, atomic, composed_of, interface_contract, knowledge_artifact,
-               tags, repo_url, package_name, install_command, usage_example):
+               tags, repo_url, package_name, install_command, usage_example,
+               sub_layer, cross_cutting, runtime_dependency):
     cfg = Config.load()
     console = make_console(cfg.output_color)
     client = ArchClient(cfg)
@@ -137,6 +141,29 @@ def create_cmd(name, title, positioning, category, layer, scope, is_asset,
         data["install_command"] = install_command
     if usage_example:
         data["usage_example"] = usage_example
+    # ADR-0001(FB-f1f97a78):sub_layer/cross_cutting/runtime_dependency CLI 暴露
+    if sub_layer:
+        data["sub_layer"] = sub_layer
+    if cross_cutting:
+        data["cross_cutting"] = cross_cutting
+    if runtime_dependency:
+        rd_entries = []
+        for entry in runtime_dependency.split(","):
+            entry = entry.strip()
+            parts = entry.split(":")
+            if len(parts) < 2:
+                console.print(f"[red]✗ --runtime-dependency 格式错误: '{entry}',应为 'name:constraint[:relation]'[/red]")
+                sys.exit(1)
+            child_name = parts[0].strip()
+            constraint = parts[1].strip()
+            relation = parts[2].strip() if len(parts) >= 3 else None
+            child = client.get_component(child_name)
+            rd_entries.append({
+                "component_id": child["id"],
+                "version_constraint": constraint,
+                **({"relation": relation} if relation else {}),
+            })
+        data["runtime_dependency"] = rd_entries
 
     # FB-2 修复:composed_of 支持 'name:constraint' 格式(逗号分隔多组)
     # CLI 内部先 lookup 每个 name 拿 component_id 再 POST
