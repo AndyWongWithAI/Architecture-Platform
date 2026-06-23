@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}文献列表{% endblock %}
+{% block content %}
+<article>
+    <header>
+        <h1>📚 架构文献 <small>(共 {{ total }} 篇)</small></h1>
+        <p>
+            <a href="/literature/new" role="button" class="primary">+ 登记文献</a>
+        </p>
+    </header>
+
+    <!-- 过滤器 -->
+    <form method="get" action="/literature">
+        <div class="grid">
+            <input type="search" name="q" value="{{ filters.q or '' }}"
+                   placeholder="搜索标题 / 作者 / 摘要..."
+                   onchange="this.form.submit()">
+            <select name="tag" onchange="this.form.submit()">
+                <option value="">所有标签</option>
+                {% for t in all_tags %}
+                <option value="{{ t }}" {% if filters.tag == t %}selected{% endif %}>{{ t }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
+
+    {% if items %}
+    <figure>
+        <table role="grid">
+            <thead>
+                <tr>
+                    <th>标题</th>
+                    <th>作者</th>
+                    <th>标签</th>
+                    <th>来源</th>
+                    <th>登记时间</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for lit in items %}
+                <tr>
+                    <td>
+                        <a href="/literature/{{ lit.id }}">{{ lit.title | truncate(60) }}</a>
+                        {% if lit.is_archived %}<small><em>(已归档)</em></small>{% endif %}
+                    </td>
+                    <td>{{ lit.authors or '-' | truncate(40) }}</td>
+                    <td>
+                        {% for t in lit.tags or [] %}
+                        <span class="{{ t | lit_tag_color }}"><code>{{ t }}</code></span>
+                        {% endfor %}
+                    </td>
+                    <td><small>{{ lit.source or '-' }}</small></td>
+                    <td><small>{{ lit.added_at | format_dt }}</small></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </figure>
+    {% else %}
+    <p><em>暂无文献。<a href="/literature/new">登记第一篇 →</a></em></p>
+    {% endif %}
+</article>
+{% endblock %}

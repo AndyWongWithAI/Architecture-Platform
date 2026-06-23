@@ -906,3 +906,151 @@ async def help_detail(request: Request, slug: str):
             "docs_dir": str(DOCS_DIR),
         },
     )
+
+
+# ===== Literature 知识资产 UI(REQ-7c4bcb32,2026-06-23)=====
+# 平台首例「知识资产」实体 — 架构文献/论文收集
+# 设计:对齐 Requirement UI 模式(列表 + 详情 + 表单 + 编辑)
+
+
+def _prepare_lit_for_form(lit: dict) -> dict:
+    """为 new/edit 表单准备渲染数据(tags CSV)"""
+    lit = dict(lit)
+    lit["tags_csv"] = ", ".join(lit.get("tags") or [])
+    return lit
+
+
+@router.get("/literature", response_class=HTMLResponse)
+async def literature_list(
+    request: Request,
+    q: Optional[str] = None,
+    tag: Optional[str] = None,
+):
+    """文献列表(支持搜索 + tag 过滤)"""
+    params = {"limit": 200}
+    if q:
+        params["q"] = q
+    if tag:
+        params["tag"] = tag
+    data = await _safe_get(
+        "/api/v1/literatures", params, default={"items": [], "total": 0}
+    )
+    # 聚合所有 tags(用于 filter dropdown)
+    all_tags = set()
+    for lit in data.get("items", []):
+        for t in lit.get("tags") or []:
+            all_tags.add(t)
+    return templates.TemplateResponse(
+        request,
+        "literature/list.html",
+        {
+            "items": data.get("items", []),
+            "total": data.get("total", 0),
+            "filters": {"q": q, "tag": tag},
+            "all_tags": sorted(all_tags),
+        },
+    )
+
+
+@router.get("/literature/new", response_class=HTMLResponse)
+async def literature_new_form(request: Request):
+    """新建文献表单"""
+    return templates.TemplateResponse(request, "literature/new.html", {})
+
+
+@router.post("/literature/create")
+async def literature_create_from_ui(
+    request: Request,
+    title: str = Form(...),
+    url: str = Form(...),
+    authors: Optional[str] = Form(None),
+    summary: Optional[str] = Form(None),
+    source: Optional[str] = Form(None),
+    tags: Optional[str] = Form(None),
+    added_by: str = Form("web-ui"),
+):
+    """Web UI 创建文献(代理到 POST /api/v1/literatures)"""
+    payload = {
+        "title": title,
+        "url": url,
+        "added_by": added_by,
+    }
+    if authors:
+        payload["authors"] = authors
+    if summary:
+        payload["summary"] = summary
+    if source:
+        payload["source"] = source
+    if tags:
+        payload["tags"] = [t.strip() for t in tags.split(",") if t.strip()]
+
+    try:
+        created = await api_post("/api/v1/literatures", payload)
+    except HTTPException as e:
+        return JSONResponse({"error": str(e.detail)}, status_code=e.status_code)
+    return RedirectResponse(f"/literature/{created['id']}", status_code=303)
+
+
+@router.get("/literature/{lit_id}", response_class=HTMLResponse)
+async def literature_detail(request: Request, lit_id: str):
+    """文献详情页"""
+    lit = await _safe_get(f"/api/v1/literatures/{lit_id}")
+    if not lit:
+        raise HTTPException(status_code=404, detail=f"文献 {lit_id} 不存在")
+    return templates.TemplateResponse(
+        request,
+        "literature/detail.html",
+        {"lit": lit},
+    )
+
+
+@router.get("/literature/{lit_id}/edit", response_class=HTMLResponse)
+async def literature_edit_form(request: Request, lit_id: str):
+    """编辑文献表单(GET)"""
+    lit = await _safe_get(f"/api/v1/literatures/{lit_id}")
+    if not lit:
+        raise HTTPException(status_code=404, detail=f"文献 {lit_id} 不存在")
+    return templates.TemplateResponse(
+        request,
+        "literature/edit.html",
+        {"lit": _prepare_lit_for_form(lit)},
+    )
+
+
+@router.post("/literature/{lit_id}/edit")
+async def literature_edit_submit(
+    request: Request,
+    lit_id: str,
+    title: Optional[str] = Form(None),
+    url: Optional[str] = Form(None),
+    authors: Optional[str] = Form(None),
+    summary: Optional[str] = Form(None),
+    source: Optional[str] = Form(None),
+    tags: Optional[str] = Form(None),
+):
+    """编辑文献提交(POST → 代理 PATCH,303 重定向)"""
+    payload = {}
+    if title:
+        payload["title"] = title.strip()
+    if url:
+        payload["url"] = url.strip()
+    if authors is not None:
+        payload["authors"] = authors or None
+    if summary is not None:
+        payload["summary"] = summary or None
+    if source is not None:
+        payload["source"] = source or None
+    if tags is not None:
+        payload["tags"] = [t.strip() for t in tags.split(",") if t.strip()]
+
+    if not payload:
+        return RedirectResponse(f"/literature/{lit_id}", status_code=303)
+
+    try:
+        await api_patch(f"/api/v1/literatures/{lit_id}", payload)
+    except HTTPException as e:
+        return JSONResponse(
+            {"error": str(e.detail), "payload_sent": payload},
+            status_code=e.status_code,
+        )
+    return RedirectResponse(f"/literature/{lit_id}", status_code=303)

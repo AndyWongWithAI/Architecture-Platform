@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}{{ lit.title }}{% endblock %}
+{% block content %}
+<article>
+    <header>
+        <h1>📄 {{ lit.title }}</h1>
+        <p>
+            {% if lit.authors %}<strong>作者:</strong>{{ lit.authors }}{% endif %}
+            {% if lit.source %} · <small>{{ lit.source }}</small>{% endif %}
+        </p>
+        <p>
+            <a href="{{ lit.url }}" target="_blank" rel="noopener noreferrer" role="button">
+                🔗 打开原文
+            </a>
+            <a href="/literature/{{ lit.id }}/edit" role="button" class="secondary">✏️ 编辑</a>
+        </p>
+    </header>
+
+    {% if lit.summary %}
+    <h4>📝 摘要</h4>
+    <blockquote>{{ lit.summary }}</blockquote>
+    {% endif %}
+
+    {% if lit.tags %}
+    <h4>🏷️ 标签</h4>
+    <p>
+        {% for t in lit.tags %}
+        <a href="/literature?tag={{ t }}" style="text-decoration: none;">
+            <span class="{{ t | lit_tag_color }}"><code>{{ t }}</code></span>
+        </a>
+        {% endfor %}
+    </p>
+    {% endif %}
+
+    {% if lit.added_by %}
+    <p>
+        <small>
+            由 <code>{{ lit.added_by }}</code> 登记于 {{ lit.added_at | format_dt }}
+            {% if lit.is_archived %} · <em>已归档</em>{% endif %}
+        </small>
+    </p>
+    {% endif %}
+</article>
+{% endblock %}
