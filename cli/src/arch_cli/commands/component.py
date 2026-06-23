@@ -277,7 +277,13 @@ def bulk_create_cmd(from_file, dry_run, continue_on_error):
 @click.option("--tags", help="新标签(逗号分隔)")
 @click.option("--is-asset/--no-asset", "is_asset", default=None, help="是否真资产")
 @click.option("--repo-url", help="新仓库 URL")
-def update_cmd(name, title, positioning, tags, is_asset, repo_url):
+@click.option("--composed-of", "composed_of", help="复合组件子项,格式 'name:constraint' 逗号分隔(FB-38f2024f 修复:支持 PATCH 补 composed_of)")
+@click.option("--atomic/--no-atomic", "atomic", default=None, help="原子/复合标记(配合 --composed-of 使用)")
+@click.option("--sub-layer", "sub_layer", type=click.Choice(["orchestration", "normal"]), help="ADR-0001:子层标记(orchestration/normal)")
+@click.option("--cross-cutting/--no-cross-cutting", "cross_cutting", default=None, help="ADR-0001:是否横切关注点")
+@click.option("--runtime-dependency", "runtime_dependency", help="ADR-0001:运行时依赖,格式 'name:constraint:relation' 逗号分隔(relation=orchestration|peer|deployment)")
+def update_cmd(name, title, positioning, tags, is_asset, repo_url,
+               composed_of, atomic, sub_layer, cross_cutting, runtime_dependency):
     cfg = Config.load()
     console = make_console(cfg.output_color)
     client = ArchClient(cfg)
@@ -293,6 +299,51 @@ def update_cmd(name, title, positioning, tags, is_asset, repo_url):
         data["is_asset"] = is_asset
     if repo_url:
         data["repo_url"] = repo_url
+    if atomic is not None:
+        data["atomic"] = atomic
+    if sub_layer is not None:
+        data["sub_layer"] = sub_layer
+    if cross_cutting is not None:
+        data["cross_cutting"] = cross_cutting
+
+    # FB-38f2024f 修复:composed_of 走 name→id 解析,跟 create_cmd 一致
+    if composed_of:
+        if atomic:
+            console.print("[red]✗ --atomic 不能与 --composed-of 同时使用[/red]")
+            sys.exit(1)
+        entries = []
+        for entry in composed_of.split(","):
+            entry = entry.strip()
+            if ":" not in entry:
+                console.print(f"[red]✗ --composed-of 格式错误: '{entry}',应为 'name:constraint'[/red]")
+                sys.exit(1)
+            child_name, constraint = entry.split(":", 1)
+            child = client.get_component(child_name.strip())
+            entries.append({
+                "component_id": child["id"],
+                "version_constraint": constraint.strip(),
+            })
+        data["composed_of"] = entries
+
+    # ADR-0001 续:runtime_dependency 接受 name:constraint:relation 三段
+    if runtime_dependency:
+        rd_entries = []
+        for entry in runtime_dependency.split(","):
+            entry = entry.strip()
+            parts = entry.split(":")
+            if len(parts) < 2:
+                console.print(f"[red]✗ --runtime-dependency 格式错误: '{entry}',应为 'name:constraint[:relation]'[/red]")
+                sys.exit(1)
+            child_name = parts[0].strip()
+            constraint = parts[1].strip()
+            relation = parts[2].strip() if len(parts) >= 3 else None
+            child = client.get_component(child_name)
+            rd_entries.append({
+                "component_id": child["id"],
+                "version_constraint": constraint,
+                **({"relation": relation} if relation else {}),
+            })
+        data["runtime_dependency"] = rd_entries
 
     if not data:
         console.print("[yellow]未指定任何更新字段[/yellow]")
