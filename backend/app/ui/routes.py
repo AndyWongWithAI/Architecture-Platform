@@ -378,6 +378,25 @@ async def healthz():
 # ===== Phase 1.2 需求模块 UI(2026-06-21)=====
 
 
+# ——— 需求 Tab 折叠(A-2 REQ-eab024a9)———
+# 需求 9 个状态太多,平铺成 9 个 tab 视觉过载。
+# 按 SDLC 阶段折叠成 5 个一级 tab(active / verified / done / closed / all)。
+# tab 是 UI 概念,后端 API 不变,客户端按状态桶过滤。
+REQ_TAB_BUCKETS = {
+    "active": ["draft", "triaged", "scheduled", "in_progress"],
+    "verified": ["implemented", "verified"],
+    "done": ["complete"],
+    "closed": ["rejected", "cancelled"],
+}
+REQ_TAB_BUCKET_LABEL = {
+    "active": "进行中",
+    "verified": "已实现",
+    "done": "已完成",
+    "closed": "已关闭",
+    "all": "全部",
+}
+
+
 @router.get("/requirements", response_class=HTMLResponse)
 async def requirements_list(
     request: Request,
@@ -386,11 +405,33 @@ async def requirements_list(
     type: Optional[str] = None,
     assignee: Optional[str] = None,
     component: Optional[str] = None,
+    tab: Optional[str] = None,
 ):
-    """需求列表(对齐 feedbacks 看板布局但用表格,8 状态 Kanban 不可读)"""
+    """需求列表(对齐 feedbacks 看板布局但用表格,9 状态按 tab 折叠)
+
+    A-2 (REQ-eab024a9) 需求 tab 折叠:
+      - 顶部 tab:active / verified / done / closed / all(按 SDLC 阶段分桶)
+      - tab 切换 ?tab=ID;老 ?status= 链接直接进 active 视图(保持兼容)
+      - 二级过滤:priority / type / assignee / component(下方 select 保留)
+      - 一次拉全量(limit=200),在内存里按 tab 过滤 + 算桶计数(避免 N+1)
+    """
+    # 1. tab → 状态桶翻译
+    active_tab = "active"
+    if tab and tab in REQ_TAB_BUCKETS:
+        active_tab = tab
+    elif tab == "all":
+        active_tab = "all"
+    elif status and status in ("draft", "triaged", "scheduled", "in_progress"):
+        active_tab = "active"
+    elif status and status in ("implemented", "verified"):
+        active_tab = "verified"
+    elif status == "complete":
+        active_tab = "done"
+    elif status and status in ("rejected", "cancelled"):
+        active_tab = "closed"
+
+    # 2. 一次拉全量,客户端按 tab 桶过滤 + 算桶计数
     params = {"limit": 200}
-    if status:
-        params["status"] = status
     if priority:
         params["priority"] = priority
     if type:
@@ -399,14 +440,53 @@ async def requirements_list(
         params["assignee"] = assignee
     if component:
         params["component_id"] = component
+
     data = await _safe_get("/api/v1/requirements", params, default={"items": [], "total": 0})
+    all_items = data.get("items", [])
+    total_all = data.get("total", len(all_items))
+
+    # 3. 按状态分桶计数
+    tab_counts = {"active": 0, "verified": 0, "done": 0, "closed": 0, "all": total_all}
+    for r in all_items:
+        s = r.get("status", "")
+        for bucket_id, statuses in REQ_TAB_BUCKETS.items():
+            if s in statuses:
+                tab_counts[bucket_id] += 1
+                break
+
+    # 4. 当前 tab 视图:在内存里按状态桶过滤(其他二级过滤已在 API 层生效)
+    if active_tab == "all":
+        items = all_items
+        total = total_all
+    else:
+        target_statuses = REQ_TAB_BUCKETS[active_tab]
+        items = [r for r in all_items if r.get("status") in target_statuses]
+        total = tab_counts[active_tab]
+
+    # 5. tabs 给 partial 用(按 active → verified → done → closed → all 顺序)
+    tabs = [
+        {"id": "active", "label": REQ_TAB_BUCKET_LABEL["active"], "count": tab_counts["active"]},
+        {"id": "verified", "label": REQ_TAB_BUCKET_LABEL["verified"], "count": tab_counts["verified"]},
+        {"id": "done", "label": REQ_TAB_BUCKET_LABEL["done"], "count": tab_counts["done"]},
+        {"id": "closed", "label": REQ_TAB_BUCKET_LABEL["closed"], "count": tab_counts["closed"]},
+        {"id": "all", "label": REQ_TAB_BUCKET_LABEL["all"], "count": tab_counts["all"]},
+    ]
+
     return templates.TemplateResponse(
         request,
         "requirements/list.html",
         {
-            "items": data.get("items", []),
-            "total": data.get("total", 0),
-            "filters": {"status": status, "priority": priority, "type": type, "assignee": assignee, "component": component},
+            "items": items,
+            "total": total,
+            "tabs": tabs,
+            "active_tab": active_tab,
+            "filters": {
+                "status": status,
+                "priority": priority,
+                "type": type,
+                "assignee": assignee,
+                "component": component,
+            },
         },
     )
 
