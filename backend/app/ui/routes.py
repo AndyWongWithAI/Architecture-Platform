@@ -56,11 +56,49 @@ async def _safe_get(path: str, params: Optional[dict] = None, default=None):
 
 @router.get("/", response_class=HTMLResponse)
 async def index(request: Request):
+    """架构平台公网门户 — drafting sheet 风格的 landing page(2026-06-24 redesign)
+    数据从 API 实时拉取,旧的 PicoCSS dashboard 保留在 /dashboard 备查。
+    """
     components = await _safe_get("/api/v1/components", {"limit": 200}, default={"items": [], "total": 0})
     feedbacks = await _safe_get("/api/v1/feedbacks", {"limit": 5}, default={"items": [], "total": 0})
     deployments = await _safe_get("/api/v1/deployments", {"limit": 5}, default={"items": [], "total": 0})
 
     # 按 layer 分组统计
+    by_layer = {"L0_infrastructure": 0, "L1_platform": 0, "L2_capability": 0, "L3_application": 0}
+    assets_count = 0
+    for c in components.get("items", []):
+        layer = c.get("layer", "")
+        if layer in by_layer:
+            by_layer[layer] += 1
+        if c.get("is_asset"):
+            assets_count += 1
+
+    return templates.TemplateResponse(
+        request,
+        "landing.html",
+        {
+            "total_components": components.get("total", 0),
+            "by_layer": by_layer,
+            "assets_count": assets_count,
+            "project_count": components.get("total", 0) - assets_count,
+            "total_feedbacks": feedbacks.get("total", 0),
+            "total_deployments": deployments.get("total", 0),
+            "recent_feedbacks": feedbacks.get("items", [])[:5],
+            "recent_deployments": deployments.get("items", [])[:5],
+        },
+    )
+
+
+# ——— 1b. 旧版 dashboard(保留备查)———
+@router.get("/dashboard", response_class=HTMLResponse)
+async def dashboard(request: Request):
+    """旧版 PicoCSS dashboard(2026-06-20 首发版本)保留在 /dashboard。
+    后续确认无引用后可删除。
+    """
+    components = await _safe_get("/api/v1/components", {"limit": 200}, default={"items": [], "total": 0})
+    feedbacks = await _safe_get("/api/v1/feedbacks", {"limit": 5}, default={"items": [], "total": 0})
+    deployments = await _safe_get("/api/v1/deployments", {"limit": 5}, default={"items": [], "total": 0})
+
     by_layer = {"L0_infrastructure": 0, "L1_platform": 0, "L2_capability": 0, "L3_application": 0}
     assets_count = 0
     for c in components.get("items", []):
