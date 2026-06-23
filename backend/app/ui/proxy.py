@@ -67,13 +67,21 @@ async def api_delete(
 
     REQ-f740a3be:组件 UI delete 按钮 → DELETE /api/v1/components/{id}?reason=...
     reason 是 query string(后端用 Query(min_length=10) 校验),不是 body。
+
+    实现注意(FB-? 2026-06-23 修复):
+    - httpx.AsyncClient.delete() **不支持** json kwarg(只有 POST/PATCH/PUT 支持)
+    - 必须用 client.request("DELETE", ...) 才能带 body
+    - 历史上 client.delete(json=json) 每次都 TypeError,被 except HTTPException 漏掉
+      导致 UI 路由 500 + 前端 JSON.parse 失败 "Unexpected token 'I'"
     """
     headers = {}
     if API_KEY:
         headers["X-API-Key"] = API_KEY
 
     async with httpx.AsyncClient(timeout=30.0) as client:
-        resp = await client.delete(
+        # 用 request() 而不是 delete(),因为 delete() 不支持 json= 参数
+        resp = await client.request(
+            "DELETE",
             f"{API_BASE}{path}",
             params=params,
             json=json,
