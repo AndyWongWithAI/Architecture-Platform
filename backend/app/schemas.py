@@ -31,6 +31,8 @@ class ComponentBase(BaseModel):
     name: str = Field(..., pattern=r"^[a-z][a-z0-9.-]*$", min_length=2, max_length=64)
     title: str = Field(..., max_length=128)
     positioning: str = Field(..., min_length=10, max_length=500)
+    # REQ-d1deda65:描述(可选,删除原因可写到这里)
+    description: Optional[str] = None
     category: Category
     scope: Scope
     layer: Layer
@@ -87,6 +89,8 @@ class ComponentOut(ComponentBase, ORMBase):
     id: str
     status: ComponentStatus
     current_version_id: Optional[str] = None
+    # REQ-d1deda65:软删除标记(对齐 RequirementOut/LiteratureOut)
+    is_archived: bool = False
     created_at: datetime
     updated_at: datetime
 

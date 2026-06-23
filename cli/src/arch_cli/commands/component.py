@@ -32,8 +32,9 @@ def cli():
 @click.option("--category", help="按分类过滤(auth/db/cache/queue/...)")
 @click.option("--asset/--no-asset", default=None, help="是否真资产")
 @click.option("--q", help="关键字搜索(name/title/tags/positioning)")
+@click.option("--include-archived", is_flag=True, help="包含已归档(REQ-d1deda65)")
 @click.option("--format", "fmt", type=click.Choice(["table", "json"]), default=None)
-def list_cmd(layer, category, asset, q, fmt):
+def list_cmd(layer, category, asset, q, include_archived, fmt):
     cfg = Config.load()
     if fmt:
         cfg.output_format = fmt
@@ -49,6 +50,8 @@ def list_cmd(layer, category, asset, q, fmt):
         params["is_asset"] = "true" if asset else "false"
     if q:
         params["q"] = q
+    if include_archived:
+        params["include_archived"] = True
 
     data = client.list_components(**params)
     items = data.get("items", [])
@@ -383,3 +386,33 @@ def update_cmd(name, title, positioning, tags, is_asset, repo_url,
         sys.exit(1)
 
     console.print(f"[green]✓ 组件已更新:[/green] {result['name']}")
+
+
+# REQ-d1deda65:组件软删除/恢复 CLI(对齐 requirement archive/restore 模式)
+@cli.command(name="delete", help="软删除组件(is_archived=true,需 ≥10 字符 reason)")
+@click.argument("name")
+@click.option("--reason", required=True, help="删除原因(≥10 字符,会写入 description 末尾)")
+def delete_cmd(name, reason):
+    cfg = Config.load()
+    console = make_console(cfg.output_color)
+    client = ArchClient(cfg)
+    try:
+        result = client.delete_component(name, reason=reason)
+    except Exception as e:
+        console.print(f"[red]✗ 删除失败:[/red] {e}")
+        sys.exit(1)
+    console.print(f"[green]✓ 组件已归档:[/green] {result['id'][:8]} ({result.get('name')})")
+
+
+@cli.command(name="restore", help="撤销软删除(is_archived=false)")
+@click.argument("name")
+def restore_cmd(name):
+    cfg = Config.load()
+    console = make_console(cfg.output_color)
+    client = ArchClient(cfg)
+    try:
+        result = client.restore_component(name)
+    except Exception as e:
+        console.print(f"[red]✗ 恢复失败:[/red] {e}")
+        sys.exit(1)
+    console.print(f"[green]✓ 组件已恢复:[/green] {result['id'][:8]} ({result.get('name')})")

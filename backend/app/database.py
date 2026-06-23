@@ -85,3 +85,10 @@ def _migrate_legacy_columns(engine):
                 conn.execute(text("CREATE INDEX IF NOT EXISTS idx_component_cross_cutting ON components (cross_cutting)"))
             if "runtime_dependency" not in cols:
                 conn.execute(text("ALTER TABLE components ADD COLUMN runtime_dependency JSON DEFAULT '[]'"))
+            # REQ-d1deda65(2026-06-23):软删除独立 bool 字段
+            if "is_archived" not in cols:
+                conn.execute(text("ALTER TABLE components ADD COLUMN is_archived BOOLEAN DEFAULT 0 NOT NULL"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_component_is_archived ON components (is_archived)"))
+            # REQ-d1deda65(2026-06-23):description 字段(存放删除原因)
+            if "description" not in cols:
+                conn.execute(text("ALTER TABLE components ADD COLUMN description TEXT"))

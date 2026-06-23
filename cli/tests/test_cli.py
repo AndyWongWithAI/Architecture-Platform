@@ -425,3 +425,66 @@ def test_doubt_stop(_local_config):
     assert "cycle 已停止" in out
     assert "user_stop" in out
     print(f"  → CLI doubt stop: cycle {cycle_id[:8]} stopped ✓")
+
+
+# ===== REQ-d1deda65 组件删除/恢复 CLI(2026-06-24)=====
+
+def test_component_delete_with_reason_200(_local_config):
+    """arch component delete <name> --reason '...' → is_archived=true"""
+    if not _REQ_LOCAL:
+        pytest.skip("component delete endpoint 未部署到生产,跳过")
+    # 1. create 一个临时 atomic 组件
+    import uuid
+    name = f"pytest-cli-del-{uuid.uuid4().hex[:8]}"
+    rc, out, _ = _run(
+        "component", "create",
+        "--name", name,
+        "--title", "CLI 删除测试临时组件",
+        "--positioning", "用于 REQ-d1deda65 CLI delete/restore 测试的临时原子组件",
+        "--category", "other",
+        "--layer", "L1_platform",
+    )
+    assert rc == 0, f"create failed: {out}"
+    # 2. delete
+    rc, out, _ = _run(
+        "component", "delete", name,
+        "--reason", "测试 CLI delete 链路-不应保留-cleanup",
+    )
+    assert rc == 0, f"delete failed: {out}"
+    assert "组件已归档" in out
+    print(f"  → CLI component delete: {name} 已归档 ✓")
+    # 3. cleanup:尝试 restore 一次,以便后续能 list 到(可选)— 这里不恢复,直接保留归档
+
+
+def test_component_restore_200(_local_config):
+    """arch component restore <name> → is_archived=false"""
+    if not _REQ_LOCAL:
+        pytest.skip("component restore endpoint 未部署到生产,跳过")
+    import uuid
+    name = f"pytest-cli-restore-{uuid.uuid4().hex[:8]}"
+    # 1. create
+    rc, out, _ = _run(
+        "component", "create",
+        "--name", name,
+        "--title", "CLI restore 测试临时组件",
+        "--positioning", "用于 REQ-d1deda65 CLI restore 测试的临时原子组件",
+        "--category", "other",
+        "--layer", "L1_platform",
+    )
+    assert rc == 0, f"create failed: {out}"
+    # 2. delete
+    rc, _, _ = _run(
+        "component", "delete", name,
+        "--reason", "测试 CLI restore 前置归档-不应保留-cleanup",
+    )
+    assert rc == 0
+    # 3. restore
+    rc, out, _ = _run("component", "restore", name)
+    assert rc == 0, f"restore failed: {out}"
+    assert "组件已恢复" in out
+    print(f"  → CLI component restore: {name} 已恢复 ✓")
+    # 4. cleanup:归档掉
+    _run(
+        "component", "delete", name,
+        "--reason", "CLI 测试 cleanup 归档-不应保留",
+    )
