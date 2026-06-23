@@ -1,0 +1,29 @@
+{# ——— 可复用空状态 partial ———
+   REQ-010fb7b5 全站优化沉淀的资产。
+
+   期望 context:
+     icon         = (可选) emoji 或简短字符,默认 "🗂️"
+     title        = 主标题(必填)
+     description  = 副标题说明(可选,空则不渲染 <p>)
+     action_url   = CTA 按钮跳转(可选,空则不渲染按钮)
+     action_label = CTA 按钮文字(默认 "新建")
+
+   用于空数据列表(无需求、无组件、无文献、无审计、无反馈等)。
+
+   设计原则(对齐 CLAUDE.md 一致性 + 复用 + 定位稳定性):
+     - 居中布局,大字号 icon,清晰 CTA
+     - 不引入新依赖 / icon 库,emoji 即用即走
+     - 所有视觉 token 集中在 site.css
+#}
+{% set _icon = icon | default("🗂️", true) %}
+{% set _action_label = action_label | default("新建", true) %}
+<section class="site-empty-state" role="status">
+  <div class="site-empty-state-icon" aria-hidden="true">{{ _icon }}</div>
+  <h2 class="site-empty-state-title">{{ title }}</h2>
+  {% if description %}
+    <p class="site-empty-state-desc">{{ description }}</p>
+  {% endif %}
+  {% if action_url %}
+    <a role="button" href="{{ action_url }}" class="site-empty-state-cta">{{ _action_label }}</a>
+  {% endif %}
+</section>

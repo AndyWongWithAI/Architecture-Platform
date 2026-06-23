@@ -1,0 +1,36 @@
+{# ——— 可复用面包屑 partial ———
+   REQ-010fb7b5 全站优化沉淀的资产。
+
+   期望 context:
+     crumbs = [{"label": "需求", "url": "/requirements"}, {"label": "详情"}]
+              最后一粒为当前页(可省略 url,或 url 为空字符串)
+              至少 1 项,否则不渲染
+
+   行为:
+     - 最后一粒不加链接(当前页,无 href)
+     - 中间粒加链接
+     - 复用 PicoCSS 风格;视觉细节集中在 static/css/site.css
+     - 箭头分隔符 ›(复用 A-5 等风格惯例,避免引入新字体/icon)
+
+   设计原则(对齐 CLAUDE.md 一致性 + 复用 + 定位稳定性):
+     - PicoCSS 简洁下划线,不做大胆差异化
+     - 不引入新依赖 / 不引入新色 hex,用 --pico-* 变量
+     - 所有视觉 token 集中在 site.css,不在 partial 内联样式
+#}
+{% if crumbs and crumbs | length > 0 %}
+<nav aria-label="breadcrumb" class="site-breadcrumb">
+  <ol>
+    {% for c in crumbs %}
+      {% set _is_last = loop.last %}
+      <li>
+        {% if _is_last or not c.url %}
+          <span aria-current="page">{{ c.label }}</span>
+        {% else %}
+          <a href="{{ c.url }}">{{ c.label }}</a>
+        {% endif %}
+        {% if not _is_last %}<span class="site-breadcrumb-sep" aria-hidden="true">›</span>{% endif %}
+      </li>
+    {% endfor %}
+  </ol>
+</nav>
+{% endif %}

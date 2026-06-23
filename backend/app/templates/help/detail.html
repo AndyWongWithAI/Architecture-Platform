@@ -12,15 +12,15 @@
 </style>
 {% endif %}
 
-<nav aria-label="breadcrumb">
-    <ul style="list-style: none; padding: 0; display: flex; gap: 0.5rem; font-size: 0.9rem;">
-        <li><a href="/help">文档</a></li>
-        <li>›</li>
-        <li>{{ category }}</li>
-        <li>›</li>
-        <li><code>{{ filename }}</code></li>
-    </ul>
-</nav>
+{# 面包屑(REQ-010fb7b5 复用 _components/breadcrumb.html partial)
+   注意:set 的局部变量不会传给 include,要用 {% with %} 块显式注入 #}
+{% with crumbs = [
+    {"label": "文档", "url": "/help"},
+    {"label": category, "url": "/help#category-" ~ category},
+    {"label": filename},
+] %}
+{% include "_components/breadcrumb.html" with context %}
+{% endwith %}
 
 <article>
     <header>

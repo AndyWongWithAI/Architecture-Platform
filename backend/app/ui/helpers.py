@@ -22,14 +22,22 @@ LAYER_COLOR = {
 }
 
 # severity → 颜色
+# REQ-010fb7b5:合并 feedback(4 档)+ audit(3 档)命名,共享一套颜色语义
+# feedback: critical / high / medium / low
+# audit:    blocker / warn / info(语义对齐:严重 → 警示色)
 SEVERITY_COLOR = {
+    # feedback(原值,保持不变)
     "critical": "pico-color-red-650",
     "high": "pico-color-orange-500",
     "medium": "pico-color-amber-450",
     "low": "pico-color-green-550",
+    # audit(REQ-7328c640)合并命名 — 与 AUDIT_SEVERITY_COLOR 共享
+    "blocker": "pico-color-red-650",
+    "warn": "pico-color-amber-450",
+    "info": "pico-color-blue-550",
 }
 
-# status → 颜色
+# status → 颜色(feedback 模块通用)
 STATUS_COLOR = {
     "open": "pico-color-amber-500",
     "triaged": "pico-color-blue-500",
@@ -90,6 +98,29 @@ def truncate(text: Optional[str], length: int = 80) -> str:
     if len(text) <= length:
         return text
     return text[:length - 1] + "…"
+
+
+def truncate_middle(text: Optional[str], max_len: int = 40) -> str:
+    """文本中间截断 + 省略号
+
+    适用于 URL / UUID / 长 ID 等需要保留首尾语义的可视化场景:
+        "https://example.com/very/long/path/to/something" → "https://example.com/very…something"
+
+    行为:
+      - 长度 <= max_len:原样返回
+      - 长度 >  max_len:保留前 ~60% / 后 ~30% 字符,中间加 …
+    """
+    if not text:
+        return ""
+    if max_len < 5:
+        # 太短,直接 truncate 兜底
+        return text[:max_len]
+    if len(text) <= max_len:
+        return text
+    # 头 60% 尾 30%(保证 max_len 至少 5)
+    keep_head = max(2, int(max_len * 0.6))
+    keep_tail = max(2, max_len - keep_head - 1)
+    return text[:keep_head] + "…" + text[-keep_tail:] if keep_tail else text[:keep_head] + "…"
 
 
 def is_asset_badge(is_asset: bool) -> str:
@@ -187,6 +218,20 @@ REQ_PRIORITY_COLOR = {
     "P3": "pico-color-grey-500",
 }
 
+# REQ-010fb7b5:对齐 status_color 的设计 — 通用「生命周期」色板
+# 草稿(draft)=灰;分诊/排期=蓝;进行中=青;已实现/已验证/已完成=绿;拒绝/取消=暗灰
+REQ_STATUS_COLOR = {
+    "draft": "pico-color-grey-500",
+    "triaged": "pico-color-blue-500",
+    "scheduled": "pico-color-blue-550",
+    "in_progress": "pico-color-cyan-500",
+    "implemented": "pico-color-green-550",
+    "verified": "pico-color-green-550",
+    "complete": "pico-color-green-650",
+    "rejected": "pico-color-grey-500",
+    "cancelled": "pico-color-grey-500",
+}
+
 # Audit Module(REQ-7328c640, 2026-06-23)
 # audit finding severity 三档:info / warn / blocker
 AUDIT_SEVERITY_COLOR = {
@@ -227,6 +272,11 @@ REQ_STATUS_ZH = {
 
 def req_priority_color(p: Optional[str]) -> str:
     return REQ_PRIORITY_COLOR.get(p or "", "")
+
+
+def req_status_color(s: Optional[str]) -> str:
+    """需求状态 → PicoCSS 颜色 class(对齐 status_color 的设计语言)"""
+    return REQ_STATUS_COLOR.get(s or "", "")
 
 
 def req_priority_zh(p: Optional[str]) -> str:
@@ -283,6 +333,7 @@ def register_filters(env):
     env.filters["short_id"] = short_id
     env.filters["format_dt"] = format_dt
     env.filters["truncate"] = truncate
+    env.filters["truncate_middle"] = truncate_middle
     env.filters["is_asset_badge"] = is_asset_badge
     env.filters["form_label"] = distribution_form_label
     # FB-A: 中文映射过滤器
@@ -293,6 +344,7 @@ def register_filters(env):
     env.filters["severity_zh"] = severity_zh
     # Phase 1.2 Requirement
     env.filters["req_priority_color"] = req_priority_color
+    env.filters["req_status_color"] = req_status_color
     env.filters["req_priority_zh"] = req_priority_zh
     env.filters["req_type_zh"] = req_type_zh
     env.filters["req_status_zh"] = req_status_zh
