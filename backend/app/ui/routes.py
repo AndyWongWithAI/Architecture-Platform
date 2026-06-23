@@ -23,7 +23,7 @@ from .markdown_renderer import (
     render_markdown_file,
     resolve_slug,
 )
-from .proxy import api_get, api_patch, api_post
+from .proxy import api_delete, api_get, api_patch, api_post
 
 
 # ——— 模板配置 ———
@@ -108,6 +108,7 @@ async def components_list(
     category: Optional[str] = None,
     is_asset: Optional[str] = None,  # FB-K 修复(2026-06-21):改为 str,内部判断 "true"/"false",避免空字符串触发 422
     q: Optional[str] = None,
+    include_archived: Optional[str] = None,  # REQ-f740a3be:UI 列表显式展开归档项
 ):
     """组件列表:tab 分层(L0/L1/L2/L3/all)+ 下方二级过滤(category/is_asset/q)
 
@@ -119,6 +120,10 @@ async def components_list(
       "L0_infrastructure" → "L0_infrastructure"(传给后端)
       "all"               → None(不传 layer)
       未知 tab 值        → 兜底为 "all"
+
+    REQ-f740a3be:
+      include_archived="true" → 传给后端 API 的 ?include_archived=true,
+      后端 list 默认隐藏已归档组件,需显式开关才展示。
     """
     # 1. tab → layer 翻译
     active_tab = "all"
@@ -136,9 +141,13 @@ async def components_list(
         active_tab = layer
 
     # 2. 用一次 SQL COUNT GROUP BY 拿各层级组件数(对 all 视图用,节省 N+1)
+    # REQ-f740a3be:tab 计数也尊重 include_archived,这样切换开关后 tab 数字准确
+    list_query = {"limit": 200}
+    if include_archived == "true":
+        list_query["include_archived"] = "true"
     all_data = await _safe_get(
         "/api/v1/components",
-        {"limit": 200},
+        list_query,
         default={"items": [], "total": 0},
     )
     all_items = all_data.get("items", [])
@@ -162,6 +171,8 @@ async def components_list(
         params["is_asset"] = "false"
     if q:
         params["q"] = q
+    if include_archived == "true":
+        params["include_archived"] = "true"
 
     data = await _safe_get("/api/v1/components", params, default={"items": [], "total": 0})
 
@@ -185,6 +196,7 @@ async def components_list(
                 "category": category,
                 "is_asset": is_asset,
                 "q": q,
+                "include_archived": include_archived,
             },
             "tabs": tabs,
             "active_tab": active_tab,
@@ -234,6 +246,44 @@ async def component_detail(
             "graph_dsl": graph_dsl,
         },
     )
+
+
+# ——— 3.5. 组件软删除 / 恢复(REQ-f740a3be)———
+
+@router.post("/components/{name}/delete")
+async def component_delete_from_ui(
+    name: str,
+    request: Request,
+    reason: str = Form(..., min_length=10),
+):
+    """Web UI 删除按钮(代理 DELETE)
+
+    业务规则:
+    - reason ≥ 10 字符(Pydantic Form 兜底,API 层也校验)
+    - 后端 200 → 重定向到 /components(回到列表)
+    - 后端 409(被引用)/ 422(已归档)/ 404(不存在) → 返回 JSON 错误,
+      前端 fetch 拿到后 alert 提示
+    """
+    try:
+        await api_delete(f"/api/v1/components/{name}", params={"reason": reason})
+    except HTTPException as e:
+        error_msg = e.detail if isinstance(e.detail, str) else str(e.detail)
+        return JSONResponse({"error": error_msg}, status_code=e.status_code)
+    return RedirectResponse(url="/components", status_code=303)
+
+
+@router.post("/components/{name}/restore")
+async def component_restore_from_ui(
+    name: str,
+    request: Request,
+):
+    """Web UI 恢复按钮(代理 POST restore)"""
+    try:
+        await api_post(f"/api/v1/components/{name}/restore", json={})
+    except HTTPException as e:
+        error_msg = e.detail if isinstance(e.detail, str) else str(e.detail)
+        return JSONResponse({"error": error_msg}, status_code=e.status_code)
+    return RedirectResponse(url=f"/components/{name}", status_code=303)
 
 
 # ——— 4. 依赖树 ———

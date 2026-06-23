@@ -58,6 +58,30 @@ async def api_patch(path: str, json: dict) -> Any:
     return _handle_response(resp)
 
 
+async def api_delete(
+    path: str,
+    params: Optional[dict] = None,
+    json: Any = None,
+) -> Any:
+    """DELETE 后端 API(支持 query params,例如 component 删除的 reason)
+
+    REQ-f740a3be:组件 UI delete 按钮 → DELETE /api/v1/components/{id}?reason=...
+    reason 是 query string(后端用 Query(min_length=10) 校验),不是 body。
+    """
+    headers = {}
+    if API_KEY:
+        headers["X-API-Key"] = API_KEY
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        resp = await client.delete(
+            f"{API_BASE}{path}",
+            params=params,
+            json=json,
+            headers=headers,
+        )
+    return _handle_response(resp)
+
+
 def _handle_response(resp: httpx.Response) -> Any:
     """统一处理响应:错误抛 HTTPException(让前端看到状态码)"""
     if resp.is_success:
