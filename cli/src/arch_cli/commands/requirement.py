@@ -145,8 +145,9 @@ def create_cmd(component_id, title, description, user_story, acceptance_criteria
 @click.option("--ac", "acceptance_criteria", help='验收标准 JSON 字符串,如 \'[{"given":"...","when":"...","then":"..."}]\' (2026-06-22 新增)')
 @click.option("--nfr", help='NFR JSON 字符串,如 \'{"performance":"p99<200ms"}\' (2026-06-22 新增)')
 @click.option("--tags", help="标签(逗号分隔)")
+@click.option("--reason", help="打回原因(verified → triaged/rejected 时必填,≥10 字符)")
 def update_cmd(req_id, status, priority, assignee, due_date, description,
-               user_story, acceptance_criteria, nfr, tags):
+               user_story, acceptance_criteria, nfr, tags, reason):
     cfg = Config.load()
     console = make_console(cfg.output_color)
     client = ArchClient(cfg)
@@ -171,6 +172,8 @@ def update_cmd(req_id, status, priority, assignee, due_date, description,
         data["nfr"] = json.loads(nfr)
     if tags:
         data["tags"] = [t.strip() for t in tags.split(",")]
+    if reason:
+        data["reason"] = reason
 
     if not data:
         console.print("[yellow]未指定任何更新字段[/yellow]")

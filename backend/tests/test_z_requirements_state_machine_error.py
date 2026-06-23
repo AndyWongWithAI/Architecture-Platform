@@ -176,7 +176,8 @@ def test_draft_to_scheduled_blocked(backend):
 
 
 def test_verified_to_in_progress_blocked(backend):
-    """(c) verified → in_progress:非法,422 + allowed=['complete'] (REQ-b871169e:verified 不再是终态)"""
+    """(c) verified → in_progress:非法,422 + allowed=['complete', 'rejected', 'triaged']
+    (REQ-b871169e:verified 不再是终态;REQ-69212ee4:verified 可打回 triaged/rejected)"""
     req_id = _create_req(backend, "case-c")
     try:
         # 推进到 verified 需要 component 有 current_version_id — 跳过此 case 的全推进
@@ -225,9 +226,9 @@ def test_verified_to_in_progress_blocked(backend):
             assert r.status_code == 200, f"推进 {s} 失败:{r.status_code} {r.text}"
 
         # 触发非法转换:verified → in_progress
-        # REQ-b871169e:verified 现在是中间态,只能往 complete 走
+        # REQ-b871169e:verified 现在是中间态;REQ-69212ee4:新增 triaged/rejected
         r = _patch_status(backend, req_id, "in_progress")
-        detail = _assert_state_machine_422(r, "verified", "in_progress", ["complete"])
+        detail = _assert_state_machine_422(r, "verified", "in_progress", ["complete", "rejected", "triaged"])
         # suggestion 应提示先 complete
         assert "complete" in detail["suggestion"], (
             f"suggestion 应提示 complete:got {detail['suggestion']!r}"

@@ -36,7 +36,7 @@ ALLOWED_TRANSITIONS = {
     RequirementStatus.scheduled: {RequirementStatus.in_progress, RequirementStatus.rejected, RequirementStatus.cancelled},
     RequirementStatus.in_progress: {RequirementStatus.implemented, RequirementStatus.cancelled},
     RequirementStatus.implemented: {RequirementStatus.verified, RequirementStatus.in_progress},
-    RequirementStatus.verified: {RequirementStatus.complete},
+    RequirementStatus.verified: {RequirementStatus.complete, RequirementStatus.triaged, RequirementStatus.rejected},
     RequirementStatus.complete: set(),
     RequirementStatus.rejected: set(),
     RequirementStatus.cancelled: set(),
@@ -181,6 +181,17 @@ def _validate_transition(
                 status.HTTP_422_UNPROCESSABLE_ENTITY,
                 f"description is required to transition to '{new_status.value}'",
             )
+    # verified → triaged/rejected 必填 reason(REQ-69212ee4:打回重新评估)
+    if req.status == RequirementStatus.verified and new_status in (
+        RequirementStatus.triaged,
+        RequirementStatus.rejected,
+    ):
+        new_reason = payload.reason
+        if not new_reason or len(new_reason.strip()) < 10:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                f"reason (>=10 chars) is required to transition from 'verified' to '{new_status.value}'",
+            )
 
 
 # ===== 读操作 =====
@@ -304,6 +315,22 @@ def update_requirement(
     # 应用字段
     for key, val in update_data.items():
         setattr(req, key, val)
+
+    # REQ-69212ee4:verified → triaged/rejected 时把 reason 拼到 description 末尾 + 写 decided_at
+    if (
+        "status" in update_data
+        and req.status in (RequirementStatus.triaged, RequirementStatus.rejected)
+        and payload.reason
+    ):
+        reason_text = payload.reason.strip()
+        separator = "\n---\nreason: "
+        if req.description:
+            req.description = f"{req.description}{separator}{reason_text}"
+        else:
+            req.description = f"reason: {reason_text}"
+        # 打回时也写 decided_at(打回 = 重新评估的决策点)
+        if not req.decided_at:
+            req.decided_at = datetime.utcnow()
 
     # 触发器:离开 draft 写 decided_at
     if "status" in update_data and req.status != RequirementStatus.draft and not req.decided_at:
