@@ -1,79 +1,131 @@
 {% extends "base.html" %}
 {% block title %}Doubt Cycle {{ cycle.id[:8] }}{% endblock %}
 {% block content %}
-<article>
-    <header>
-        <h1>🔍 Doubt Cycle: {{ cycle.id[:8] }}</h1>
-        <p>
-            <strong>CLAIM:</strong> {{ cycle.claim }}
-            {% if cycle.verdict %}
-            | <strong>Verdict:</strong>
-                {% if cycle.verdict == 'pass' %}<mark style="background:#a3e635">PASS</mark>
-                {% elif cycle.verdict == 'fail' %}<mark style="background:#ef4444">FAIL</mark>
-                {% else %}<mark>{{ cycle.verdict }}</mark>{% endif %}
-            {% endif %}
-            {% if cycle.score is not none %} | Score: <strong>{{ cycle.score }}</strong>{% endif %}
-            | Cycle #{{ cycle.cycle_count }}/{{ cycle.max_cycles }}
-            {% if cycle.stopped_at %} | ⏹ Stopped at {{ cycle.stopped_at[:19] }}{% endif %}
-        </p>
-    </header>
+<div class="arch-title">
+    <h1>Doubt Cycle</h1>
+    <div class="arch-title-meta">
+        <span class="arch-title-id">{{ cycle.id[:8] }}</span><br>
+        <a href="/doubt" style="font-size: 0.85rem; color: var(--arch-ink-2);">← 列表</a>
+    </div>
+</div>
 
-    <details open>
-        <summary><strong>ARTIFACT</strong>(证据)</summary>
-        <pre><code>{{ cycle.artifact }}</code></pre>
-    </details>
+{# Stepper — 根据 cycle 进度推算当前 step #}
+{% set step_state = namespace(idx=2) %}
+{% if cycle.findings and cycle.findings|length > 0 %}{% set step_state.idx = 4 %}{% endif %}
+{% if cycle.stopped_at %}{% set step_state.idx = 5 %}{% endif %}
+<div class="arch-stepper">
+    <div class="arch-step" data-state="done">
+        <span class="arch-step-num">01</span>
+        <span class="arch-step-label">CLAIM</span>
+    </div>
+    <div class="arch-step" data-state="done">
+        <span class="arch-step-num">02</span>
+        <span class="arch-step-label">EXTRACT</span>
+    </div>
+    <div class="arch-step" {% if step_state.idx >= 3 %}data-state="done"{% endif %}>
+        <span class="arch-step-num">03</span>
+        <span class="arch-step-label">DOUBT</span>
+    </div>
+    <div class="arch-step" {% if step_state.idx >= 4 %}data-state="done"{% elif step_state.idx == 4 %}data-state="active"{% endif %}>
+        <span class="arch-step-num">04</span>
+        <span class="arch-step-label">RECONCILE</span>
+    </div>
+    <div class="arch-step" {% if step_state.idx >= 5 %}data-state="stopped"{% endif %}>
+        <span class="arch-step-num">05</span>
+        <span class="arch-step-label">STOP</span>
+    </div>
+</div>
 
-    <details open>
-        <summary><strong>CONTRACT</strong>(期望)</summary>
-        <pre>{{ cycle.contract }}</pre>
-    </details>
-
-    {% if cycle.next_step %}
-    <blockquote>
-        <strong>Next Step:</strong> {{ cycle.next_step }}
-    </blockquote>
-    {% endif %}
-
-    {% if cycle.stopped_reason %}
-    <p><small>⏹ <strong>Stopped Reason:</strong> {{ cycle.stopped_reason }}</small></p>
-    {% endif %}
+{# Meta:verdict / score / progress / stop #}
+<article class="arch-card" style="padding: var(--arch-s-3) var(--arch-s-4);">
+    <div class="arch-kvgrid-3" style="grid-template-columns: repeat(4, 1fr);">
+        <div class="arch-kv" style="border-top: none; padding-top: 0;">
+            <span class="arch-kv-label">verdict</span>
+            <span class="arch-kv-value">
+                {% if cycle.verdict %}
+                    <span class="arch-chip" data-tone="{% if cycle.verdict == 'pass' %}ok{% elif cycle.verdict == 'fail' %}error{% else %}warn{% endif %}">{{ cycle.verdict }}</span>
+                {% else %}
+                    <span class="arch-muted">—</span>
+                {% endif %}
+            </span>
+        </div>
+        <div class="arch-kv" style="border-top: none; padding-top: 0;">
+            <span class="arch-kv-label">score</span>
+            <span class="arch-kv-value" style="font-size: var(--arch-fs-md);">
+                {% if cycle.score is not none %}{{ cycle.score }}{% else %}<span class="arch-muted">—</span>{% endif %}
+            </span>
+        </div>
+        <div class="arch-kv" style="border-top: none; padding-top: 0;">
+            <span class="arch-kv-label">progress</span>
+            <span class="arch-kv-value" style="font-size: var(--arch-fs-md);">#{{ cycle.cycle_count }}/{{ cycle.max_cycles }}</span>
+        </div>
+        <div class="arch-kv" style="border-top: none; padding-top: 0;">
+            <span class="arch-kv-label">stopped</span>
+            <span class="arch-kv-value" style="font-size: var(--arch-fs-md);">
+                {% if cycle.stopped_at %}{{ cycle.stopped_at[:19] }}{% else %}<span class="arch-muted">—</span>{% endif %}
+            </span>
+        </div>
+    </div>
 </article>
 
-<article>
-    <header><h2>📋 Findings ({{ cycle.findings|length }})</h2></header>
+<article class="arch-card" data-tone="accent">
+    <h4>📌 CLAIM</h4>
+    <p style="font-size: 1.05rem; line-height: 1.6;">{{ cycle.claim }}</p>
+</article>
+
+<details class="arch-details" open>
+    <summary>ARTIFACT(证据)</summary>
+    <div class="arch-details-body">
+        <pre><code>{{ cycle.artifact }}</code></pre>
+    </div>
+</details>
+
+<details class="arch-details" open>
+    <summary>CONTRACT(期望)</summary>
+    <div class="arch-details-body">
+        <pre>{{ cycle.contract }}</pre>
+    </div>
+</details>
+
+{% if cycle.next_step %}
+<article class="arch-card" data-tone="brass">
+    <p style="margin: 0;"><strong>Next Step:</strong> {{ cycle.next_step }}</p>
+</article>
+{% endif %}
+
+{% if cycle.stopped_reason %}
+<article class="arch-card" data-tone="muted">
+    <p style="margin: 0;"><small><strong>⏹ Stopped Reason:</strong> {{ cycle.stopped_reason }}</small></p>
+</article>
+{% endif %}
+
+<article class="arch-card">
+    <h4>📋 Findings <span class="arch-muted" style="font-size:0.85rem;">({{ cycle.findings|length }})</span></h4>
     {% if cycle.findings %}
+    <div style="display: flex; flex-direction: column; gap: var(--arch-s-2);">
     {% set severity_order = {'critical': 0, 'high': 1, 'medium': 2, 'low': 3} %}
     {% for f in cycle.findings|sort(attribute='created_at') %}
-    <article style="border-left: 3px solid
-        {%- if f.severity == 'critical' %} #ef4444
-        {%- elif f.severity == 'high' %} #f59e0b
-        {%- elif f.severity == 'medium' %} #3b82f6
-        {%- else %} #94a3b8 {%- endif %};">
-        <header>
-            <strong>{{ f.category }}</strong>
-            <mark style="background:
-                {%- if f.severity == 'critical' %} #fee2e2
-                {%- elif f.severity == 'high' %} #fef3c7
-                {%- elif f.severity == 'medium' %} #dbeafe
-                {%- else %} #f3f4f6 {%- endif %};">
-                {{ f.severity }}
-            </mark>
-            <small>{{ f.created_at[:19] }}</small>
-        </header>
-        <p>{{ f.description }}</p>
-    </article>
+        <article class="arch-card" style="margin: 0; padding: var(--arch-s-3);" data-tone="{% if f.severity == 'critical' %}error{% elif f.severity == 'high' %}warn{% elif f.severity == 'medium' %}info{% else %}muted{% endif %}">
+            <div style="display: flex; align-items: center; gap: var(--arch-s-2); margin-bottom: var(--arch-s-2);">
+                <span class="arch-chip" data-tone="{% if f.severity == 'critical' %}error{% elif f.severity == 'high' %}warn{% elif f.severity == 'medium' %}info{% else %}muted{% endif %}">{{ f.severity }}</span>
+                <strong style="font-size: 0.95rem;">{{ f.category }}</strong>
+                <span style="color: var(--arch-ink-3); font-size: 0.8rem; margin-left: auto;">{{ f.created_at[:19] }}</span>
+            </div>
+            <p style="margin: 0; font-size: 0.95rem; line-height: 1.6;">{{ f.description }}</p>
+        </article>
     {% endfor %}
+    </div>
     {% else %}
     <p><em>暂无 findings。下一步:召唤 reviewer 找茬,RECONCILE 分类后加到这里。</em></p>
     {% endif %}
 </article>
 
 {% if not cycle.stopped_at %}
-<article>
-    <header><h2>➕ 添加 Finding(RECONCILE 步骤)</h2></header>
+<article class="arch-card" data-tone="brass">
+    <h4>➕ 添加 Finding(RECONCILE 步骤)</h4>
     <form method="post" action="/doubt/cycles/{{ cycle.id }}/finding-from-ui">
-        <div class="grid">
-            <label>
+        <div class="arch-action" style="border: none; padding: 0; margin: 0 0 var(--arch-s-3) 0;">
+            <label class="arch-action-field" style="display:block;">
                 <span>Category</span>
                 <select name="category" required>
                     <option value="actionable">actionable(真问题,改 artifact)</option>
@@ -82,7 +134,7 @@
                     <option value="contract_misread">contract_misread(reviewer 因 contract 不清误报)</option>
                 </select>
             </label>
-            <label>
+            <label class="arch-action-field" style="display:block;">
                 <span>Severity</span>
                 <select name="severity">
                     <option value="low">low</option>
@@ -92,18 +144,19 @@
                 </select>
             </label>
         </div>
-        <label>
-            <span>Description(10-5000 字符)</span>
+        <label style="display:block; margin-bottom: var(--arch-s-3);">
+            <span style="display:block; font-family:'JetBrains Mono', monospace; font-size: var(--arch-fs-xs); color: var(--arch-ink-2); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: var(--arch-s-1);">Description(10-5000 字符)</span>
             <textarea name="description" required minlength="10" maxlength="5000" rows="3"></textarea>
         </label>
         <button type="submit">添加 finding</button>
     </form>
+</article>
 
-    <hr>
-
-    <form method="post" action="/doubt/cycles/{{ cycle.id }}/stop-from-ui" style="margin-top: 1em;">
-        <label>
-            <span>STOP 步骤(用户主动 ship)</span>
+<article class="arch-card" data-tone="error">
+    <h4>⏹ STOP cycle</h4>
+    <form method="post" action="/doubt/cycles/{{ cycle.id }}/stop-from-ui">
+        <label style="display:block; margin-bottom: var(--arch-s-3);">
+            <span style="display:block; font-family:'JetBrains Mono', monospace; font-size: var(--arch-fs-xs); color: var(--arch-ink-2); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: var(--arch-s-1);">STOP 原因(用户主动 ship)</span>
             <input type="text" name="reason" required minlength="3" maxlength="500"
                    placeholder="例:evidence is conclusive, ship the fix">
         </label>
@@ -111,10 +164,10 @@
     </form>
 </article>
 {% else %}
-<article>
-    <p><em>⏹ Cycle 已停止,不再接受新 finding。如需继续,请新建 cycle。</em></p>
+<article class="arch-card" data-tone="muted">
+    <p style="margin: 0;"><em>⏹ Cycle 已停止,不再接受新 finding。如需继续,请新建 cycle。</em></p>
 </article>
 {% endif %}
 
-<p><a href="/doubt">← 返回列表</a></p>
+<p style="margin-top: var(--arch-s-4);"><a href="/doubt">← 返回列表</a></p>
 {% endblock %}

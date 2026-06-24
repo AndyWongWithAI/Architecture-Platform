@@ -3,20 +3,21 @@
 {% block title %}反馈看板{% endblock %}
 
 {% block content %}
-<hgroup>
-    <h1>反馈看板(Kanban)</h1>
-    <p>{{ total }} 条反馈 · 服务器代理 API Key,无需登录即可改 status/decision</p>
-</hgroup>
+<div class="arch-title">
+    <h1>反馈看板</h1>
+    <div class="arch-title-meta">
+        <strong>{{ total }}</strong> 条反馈<br>
+        <span style="color:var(--arch-ink-3);">服务器代理 API · 无需登录</span>
+    </div>
+</div>
 
-{# REQ-5ebc9e3b:新建 Open Bug 表单(P2 实施 2026-06-23)。 #}
-{# 设计:顶部内联表单(同页面无跳转,无 modal — 保持与项目极简风格一致)。 #}
-{# 提交 → UI 代理 /feedbacks/create → 后端 POST /api/v1/versions/{ver_id}/feedbacks。 #}
+{# REQ-5ebc9e3b:新建 Open Bug 表单 #}
 {% if components %}
-<article>
-    <header><strong>📝 提交新 Open Bug</strong></header>
+<article class="arch-card" data-tone="brass">
+    <h4>📝 提交新 Open Bug</h4>
     <form method="post" action="/feedbacks/create" id="newFeedbackForm">
-        <div class="grid">
-            <label>
+        <div class="arch-action" style="border: none; padding: 0; margin: 0;">
+            <div class="arch-action-field">
                 <span>关联组件 *</span>
                 <select name="component_id" required>
                     {% for c in components %}
@@ -25,8 +26,8 @@
                     </option>
                     {% endfor %}
                 </select>
-            </label>
-            <label>
+            </div>
+            <div class="arch-action-field">
                 <span>严重程度 *</span>
                 <select name="severity" required>
                     <option value="low">Low</option>
@@ -34,86 +35,62 @@
                     <option value="high">High</option>
                     <option value="critical">Critical</option>
                 </select>
-            </label>
+            </div>
         </div>
-        <label>
+        <div class="arch-action-field" style="margin: var(--arch-s-3) 0;">
             <span>Bug 摘要 *(≥5 字符)</span>
             <textarea name="bug_summary" required minlength="5" maxlength="500"
                       rows="2" placeholder="简述 bug,如:kanban 页切换 status 偶发 500"></textarea>
-        </label>
-        <div class="grid">
-            <label>
+        </div>
+        <div class="arch-action" style="border: none; padding: 0; margin: 0;">
+            <div class="arch-action-field">
                 <span>影响项目(逗号分隔,可选)</span>
                 <input type="text" name="reused_in_projects" placeholder="如: arch-platform, intelab.cn-website">
-            </label>
-            <label>
+            </div>
+            <div class="arch-action-field">
                 <span>报告人</span>
                 <input type="text" name="reporter" value="web-ui" placeholder="留空则 web-ui">
-            </label>
+            </div>
+            <div class="arch-action-field" style="flex: 0 0 auto; align-self: flex-end;">
+                <button type="submit">提交 Open Bug</button>
+            </div>
         </div>
-        <button type="submit">提交 Open Bug</button>
-        <small class="secondary">提交后跳转至 bug 详情页;后端会自动用该组件的 current_version 关联。</small>
+        <p style="margin: var(--arch-s-3) 0 0 0;"><small style="color: var(--arch-ink-2);">提交后跳转至 bug 详情页;后端会自动用该组件的 current_version 关联。</small></p>
     </form>
 </article>
 {% else %}
-<article>
+<article class="arch-card" data-tone="warn">
     <p><em>⚠️ 当前无任何组件,无法提交反馈。请先到 <a href="/components/new">新建组件</a> 页面登记至少一个组件。</em></p>
 </article>
 {% endif %}
 
-<style>
-.kanban {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 1rem;
-}
-@media (max-width: 768px) {
-    .kanban { grid-template-columns: 1fr; }
-}
-.kanban-col {
-    background: var(--pico-card-background-color);
-    border-radius: 8px;
-    padding: 1rem;
-    min-height: 300px;
-}
-.kanban-col h4 {
-    margin: 0 0 0.5rem 0;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid var(--pico-muted-border-color);
-}
-.fb-card {
-    background: var(--pico-card-sectioning-background-color);
-    border: 1px solid var(--pico-muted-border-color);
-    border-radius: 6px;
-    padding: 0.75rem;
-    margin-bottom: 0.75rem;
-    font-size: 0.9em;
-}
-.fb-card .badges { margin-bottom: 0.5rem; }
-.fb-card .summary { margin-bottom: 0.5rem; }
-.fb-card form { margin-top: 0.5rem; }
-.fb-card form .grid { gap: 0.25rem; }
-</style>
-
-<div class="kanban">
+<div class="arch-kanban">
     {% for col_key, col_title in [
-        ("open", "🔵 待分诊"),
-        ("triaged", "🟡 已分诊"),
-        ("fixing", "🟠 修复中"),
-        ("closed", "✅ 已关闭")
+        ("open", "待分诊"),
+        ("triaged", "已分诊"),
+        ("fixing", "修复中"),
+        ("closed", "已关闭")
     ] %}
-    <div class="kanban-col" id="kanban-col-{{ col_key }}">
-        <h4>{{ col_title }} <small>({{ columns[col_key] | length }})</small></h4>
+    <div class="arch-kanban-col" data-tone="{{ col_key }}" id="kanban-col-{{ col_key }}">
+        <div class="arch-kanban-head">
+            <h4>
+                {% if col_key == 'open' %}🔵
+                {% elif col_key == 'triaged' %}🟡
+                {% elif col_key == 'fixing' %}🟠
+                {% else %}✅{% endif %}
+                {{ col_title }}
+            </h4>
+            <span class="arch-kanban-num">{{ columns[col_key] | length }}</span>
+        </div>
         {% for fb in columns[col_key] %}
             {% include "feedbacks/_card.html" %}
         {% endfor %}
         {% if not columns[col_key] %}
-        <p><small><em>空</em></small></p>
+        <div class="arch-kanban-empty">空</div>
         {% endif %}
     </div>
     {% endfor %}
 </div>
 
-<hr>
-<p><small>💡 提示:每张卡片的 status / decision 改动会通过 htmx 提交,后端服务器代理 PATCH,然后返回新卡片替换。</small></p>
+<p style="margin-top: var(--arch-s-4);"><small style="color:var(--arch-ink-2);">💡 每张卡片的 status / decision 改动会通过 htmx 提交,后端服务器代理 PATCH,然后返回新卡片替换。</small></p>
 {% endblock %}

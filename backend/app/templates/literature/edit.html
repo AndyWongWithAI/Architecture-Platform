@@ -1,54 +1,52 @@
 {% extends "base.html" %}
 {% block title %}编辑文献 · {{ lit.title }}{% endblock %}
 {% block content %}
-<article>
-    <header>
-        <h1>✏️ 编辑文献</h1>
-        <p>
-            <a href="/literature/{{ lit.id }}">← 返回详情</a>
-            · <small><code>{{ lit.id[:8] }}</code></small>
-        </p>
-    </header>
+<div class="arch-title">
+    <h1>编辑文献</h1>
+    <div class="arch-title-meta">
+        <a href="/literature/{{ lit.id }}" style="font-size: 0.85rem; color: var(--arch-ink-2);">← 返回详情</a><br>
+        <span class="arch-title-id">{{ lit.id[:8] }}</span>
+    </div>
+</div>
 
+<article class="arch-card" data-tone="brass">
     <form method="post" action="/literature/{{ lit.id }}/edit">
-        <label>
-            <span>标题</span>
-            <input type="text" name="title" required minlength="1" maxlength="500"
-                   value="{{ lit.title }}">
+        <label style="display:block; margin-bottom: var(--arch-s-3);">
+            <span style="display:block; font-family:'JetBrains Mono', monospace; font-size: var(--arch-fs-xs); color: var(--arch-ink-2); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: var(--arch-s-1);">标题 *</span>
+            <input type="text" name="title" required maxlength="500" value="{{ lit.title }}">
         </label>
 
-        <label>
-            <span>URL</span>
-            <input type="url" name="url" required minlength="1" maxlength="2000"
-                   value="{{ lit.url }}">
+        <label style="display:block; margin-bottom: var(--arch-s-3);">
+            <span style="display:block; font-family:'JetBrains Mono', monospace; font-size: var(--arch-fs-xs); color: var(--arch-ink-2); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: var(--arch-s-1);">作者</span>
+            <input type="text" name="authors" value="{{ lit.authors or '' }}">
         </label>
 
-        <label>
-            <span>作者</span>
-            <input type="text" name="authors" maxlength="500"
-                   value="{{ lit.authors or '' }}">
+        <label style="display:block; margin-bottom: var(--arch-s-3);">
+            <span style="display:block; font-family:'JetBrains Mono', monospace; font-size: var(--arch-fs-xs); color: var(--arch-ink-2); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: var(--arch-s-1);">原文 URL *</span>
+            <input type="url" name="url" required value="{{ lit.url }}">
         </label>
 
-        <label>
-            <span>摘要</span>
+        <label style="display:block; margin-bottom: var(--arch-s-3);">
+            <span style="display:block; font-family:'JetBrains Mono', monospace; font-size: var(--arch-fs-xs); color: var(--arch-ink-2); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: var(--arch-s-1);">来源</span>
+            <input type="text" name="source" value="{{ lit.source or '' }}">
+        </label>
+
+        <label style="display:block; margin-bottom: var(--arch-s-3);">
+            <span style="display:block; font-family:'JetBrains Mono', monospace; font-size: var(--arch-fs-xs); color: var(--arch-ink-2); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: var(--arch-s-1);">摘要</span>
             <textarea name="summary" rows="4">{{ lit.summary or '' }}</textarea>
         </label>
 
-        <label>
-            <span>来源</span>
-            <input type="text" name="source" maxlength="200"
-                   value="{{ lit.source or '' }}">
+        <label style="display:block; margin-bottom: var(--arch-s-4);">
+            <span style="display:block; font-family:'JetBrains Mono', monospace; font-size: var(--arch-fs-xs); color: var(--arch-ink-2); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: var(--arch-s-1);">标签(逗号分隔)</span>
+            <input type="text" name="tags" value="{{ lit.tags_csv or '' }}">
         </label>
 
-        <label>
-            <span>标签(逗号分隔)</span>
-            <input type="text" name="tags"
-                   value="{{ lit.tags_csv or '' }}"
-                   placeholder="distributed, storage, batch">
-        </label>
-
-        <button type="submit">保存修改</button>
-        <a href="/literature/{{ lit.id }}" role="button" class="secondary">取消</a>
+        <div class="arch-toolbar" style="border-bottom: none;">
+            <div class="arch-toolbar-left">
+                <button type="submit">保存修改</button>
+                <a href="/literature/{{ lit.id }}" role="button" class="secondary">取消</a>
+            </div>
+        </div>
     </form>
 </article>
 {% endblock %}

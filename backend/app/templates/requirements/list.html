@@ -1,73 +1,72 @@
 {% extends "base.html" %}
 {% block title %}需求列表{% endblock %}
 {% block content %}
-<article>
-    <header>
-        <h1>📋 需求列表 <small>(共 {{ total }} 个)</small></h1>
-    </header>
-
-    {# ——— A-2 (REQ-eab024a9):按 SDLC 阶段折叠 tab ——— #}
-    {# 9 个状态(draft/triaged/scheduled/in_progress/implemented/verified/ #}
-    {# complete/rejected/cancelled)折叠成 5 个一级 tab;复用 A-1 partial + CSS。 #}
-    <div class="list-header">
-        <div class="list-tabs">
-            {% include "_components/tabs.html" with context %}
-        </div>
-        <div class="list-actions">
-            <a href="/requirements/new" role="button" class="primary">+ 登记新需求</a>
-        </div>
+<div class="arch-title">
+    <h1>需求列表</h1>
+    <div class="arch-title-meta">
+        <strong>{{ total }}</strong> 个需求<br>
+        <span style="color:var(--arch-ink-3);">9 状态按 SDLC 阶段折叠</span>
     </div>
+</div>
 
-    {# ——— 二级过滤(优先级/类型/负责人) ——— #}
-    {# tab 切换的当前值也带过去,二级过滤在 tab 内生效 #}
-    <form method="get" action="/requirements">
-        <input type="hidden" name="tab" value="{{ active_tab }}">
-        <div class="grid">
-            <select name="priority" onchange="this.form.submit()">
-                <option value="">所有优先级</option>
-                {% for p in ['P0','P1','P2','P3'] %}
-                <option value="{{ p }}" {% if filters.priority == p %}selected{% endif %}>{{ p }}</option>
-                {% endfor %}
-            </select>
-            <select name="type" onchange="this.form.submit()">
-                <option value="">所有类型</option>
-                {% for t in ['new_feature','bug_fix','refactor','optimization','compliance','tech_debt'] %}
-                <option value="{{ t }}" {% if filters.type == t %}selected{% endif %}>{{ t | req_type_zh }}</option>
-                {% endfor %}
-            </select>
-            <input type="text" name="assignee" value="{{ filters.assignee or '' }}" placeholder="负责人" onchange="this.form.submit()">
-        </div>
-    </form>
+<div class="arch-toolbar">
+    <div class="arch-toolbar-left">
+        {% include "_components/tabs.html" with context %}
+    </div>
+    <div class="arch-toolbar-right">
+        <a href="/requirements/new" role="button" class="primary">+ 登记新需求</a>
+    </div>
+</div>
 
-    {% if items %}
-    <figure>
-        <table role="grid">
-            <thead>
-                <tr>
-                    <th>优先级</th>
-                    <th>类型</th>
-                    <th>状态</th>
-                    <th>标题</th>
-                    <th>负责人</th>
-                    <th>组件</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for r in items %}
-                <tr>
-                    <td><span class="{{ r.priority | req_priority_color }}"><strong>{{ r.priority }}</strong></span></td>
-                    <td>{{ r.type | req_type_zh }}</td>
-                    <td>{{ r.status | req_status_zh }}</td>
-                    <td><a href="/requirements/{{ r.id }}">{{ r.title | truncate(60) }}</a></td>
-                    <td>{{ r.assignee or '-' }}</td>
-                    <td>{{ r.component_id[:8] if r.component_id else '-' }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </figure>
-    {% else %}
+<form method="get" action="/requirements" class="arch-toolbar" style="border-bottom: none; margin-bottom: var(--arch-s-4);">
+    <input type="hidden" name="tab" value="{{ active_tab }}">
+    <div class="arch-toolbar-left">
+        <select name="priority" onchange="this.form.submit()">
+            <option value="">所有优先级</option>
+            {% for p in ['P0','P1','P2','P3'] %}
+            <option value="{{ p }}" {% if filters.priority == p %}selected{% endif %}>{{ p }}</option>
+            {% endfor %}
+        </select>
+        <select name="type" onchange="this.form.submit()">
+            <option value="">所有类型</option>
+            {% for t in ['new_feature','bug_fix','refactor','optimization','compliance','tech_debt'] %}
+            <option value="{{ t }}" {% if filters.type == t %}selected{% endif %}>{{ t | req_type_zh }}</option>
+            {% endfor %}
+        </select>
+        <input type="text" name="assignee" value="{{ filters.assignee or '' }}" placeholder="负责人" onchange="this.form.submit()">
+    </div>
+</form>
+
+{% if items %}
+<table class="arch-table">
+    <thead>
+        <tr>
+            <th style="width: 2.5rem;">#</th>
+            <th style="width: 5rem;">优先级</th>
+            <th>类型</th>
+            <th>状态</th>
+            <th>标题</th>
+            <th>负责人</th>
+            <th style="width: 8rem;">组件</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for r in items %}
+        <tr>
+            <td><span class="arch-row-num">{{ loop.index }}</span></td>
+            <td><span class="arch-chip" data-tone="{% if r.priority == 'P0' %}error{% elif r.priority == 'P1' %}warn{% else %}muted{% endif %}">{{ r.priority }}</span></td>
+            <td><span class="arch-muted">{{ r.type | req_type_zh }}</span></td>
+            <td><span class="arch-chip" data-tone="phosphor">{{ r.status | req_status_zh }}</span></td>
+            <td><a href="/requirements/{{ r.id }}">{{ r.title | truncate(80) }}</a></td>
+            <td><span class="arch-muted">{{ r.assignee or '—' }}</span></td>
+            <td><code style="font-size:0.8em;">{{ r.component_id[:8] if r.component_id else '—' }}</code></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<article class="arch-card" style="text-align:center;">
     <p><em>暂无需求。<a href="/requirements/new">登记第一个需求 →</a></em></p>
-    {% endif %}
 </article>
+{% endif %}
 {% endblock %}

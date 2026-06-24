@@ -3,22 +3,27 @@
 {% block title %}{{ c.name }}{% endblock %}
 
 {% block content %}
-<hgroup>
-    <h1>{{ c.title }}</h1>
-    <p>
-        <code>{{ c.name }}</code>
-        <span class="badge {{ c.layer | layer_color }}">{{ c.layer }}</span>
-        <span class="badge">{{ c.category }}</span>
-        {% if c.is_asset %}<span class="badge badge-success">✓ 真资产</span>{% else %}<span class="badge badge-secondary">✗ 项目级</span>{% endif %}
-        <span class="badge">{{ c.distribution_form | form_label }}</span>
-        {% if c.knowledge_artifact %}<span class="badge badge-warning">🧠 AI 资产</span>{% endif %}
-    </p>
-</hgroup>
+{# 大标题:组件名 + 标题 + meta #}
+<div class="arch-title">
+    <h1>
+        {{ c.name }}
+        <span class="arch-title-id">{{ c.layer | layer_zh }}</span>
+    </h1>
+    <div class="arch-title-meta">
+        <strong>{{ c.title }}</strong><br>
+        <span style="color:var(--arch-ink-3);">
+            {{ c.category | category_zh }}
+            · {{ c.distribution_form | form_label }}
+            {% if c.is_asset %}<span class="arch-chip" data-tone="ok" style="margin-left:0.5rem;">真资产</span>{% else %}<span class="arch-chip" data-tone="muted" style="margin-left:0.5rem;">项目级</span>{% endif %}
+            {% if c.knowledge_artifact %}<span class="arch-chip" data-tone="accent" style="margin-left:0.25rem;">AI 资产</span>{% endif %}
+        </span>
+    </div>
+</div>
 
-{# REQ-f740a3be:归档组件显示横幅,告知用户该组件已被软删除 #}
+{# REQ-f740a3be:归档组件显示横幅 #}
 {% if c.is_archived %}
-<article style="border-left: 4px solid orange; background: rgba(255,165,0,0.06);">
-    <h4 style="margin-top:0;">🗄 此组件已归档</h4>
+<article class="arch-card" data-tone="warn">
+    <h3>🗄 此组件已归档</h3>
     <p>归档后<strong>不可 update</strong>、<strong>不可被 composed_of 引用</strong>。
        可通过下方「♻️ 恢复组件」按钮还原。</p>
     {% set desc = c.description or '' %}
@@ -32,149 +37,192 @@
 </article>
 {% endif %}
 
-<article>
+{# 定位 #}
+<article class="arch-card" data-tone="accent">
     <h4>📌 定位</h4>
     <p>{{ c.positioning }}</p>
 </article>
 
-<div class="grid">
-    <article>
+{# 复用信息 + 结构 双列 #}
+<div class="arch-kvgrid-3">
+    <div class="arch-card" data-tone="phosphor">
         <h4>📦 复用信息</h4>
-        <ul>
-            <li><strong>语言:</strong> {{ c.language or '-' }}</li>
-            <li><strong>包名:</strong> <code>{{ c.package_name or '-' }}</code></li>
-            <li><strong>安装:</strong> <code>{{ c.install_command or '-' }}</code></li>
-            <li><strong>用法:</strong> <code>{{ c.usage_example or '-' }}</code></li>
+        <dl class="arch-kvgrid">
+            <dt>语言</dt><dd>{{ c.language or '—' }}</dd>
+            <dt>包名</dt><dd><code>{{ c.package_name or '—' }}</code></dd>
+            <dt>安装</dt><dd><code>{{ c.install_command or '—' }}</code></dd>
+            <dt>用法</dt><dd><code>{{ c.usage_example or '—' }}</code></dd>
             {% if c.repo_url %}
-            <li><strong>仓库:</strong> <a href="{{ c.repo_url }}" target="_blank" rel="noopener">{{ c.repo_url }}</a></li>
+            <dt>仓库</dt><dd><a href="{{ c.repo_url }}" target="_blank" rel="noopener">{{ c.repo_url }}</a></dd>
             {% endif %}
-            <li><strong>状态:</strong> {{ c.status }}</li>
-        </ul>
-    </article>
+            <dt>状态</dt><dd>{{ c.status }}</dd>
+        </dl>
+    </div>
 
-    <article>
+    <div class="arch-card" data-tone="brass">
         <h4>🏗️ 结构</h4>
-        <ul>
-            <li><strong>原子性:</strong> {% if c.atomic %}🟢 原子组件{% else %}🔵 复合组件{% endif %}</li>
-            <li><strong>子组件数:</strong> {{ c.composed_of | length }}</li>
+        <dl class="arch-kvgrid">
+            <dt>原子性</dt><dd>{% if c.atomic %}<span class="arch-chip" data-tone="phosphor">原子</span>{% else %}<span class="arch-chip" data-tone="brass">复合</span>{% endif %}</dd>
+            <dt>子组件数</dt><dd>{{ c.composed_of | length }}</dd>
             {% if c.composed_of %}
-            <li><strong>子组件:</strong>
-                <ul>
+            <dt>子组件</dt>
+            <dd>
                 {% for child in c.composed_of %}
-                    <li><code>{{ child.component_id | short_id }}</code> ({{ child.version_constraint }})</li>
+                    <code>{{ child.component_id | short_id }}</code>
+                    <span class="arch-muted">({{ child.version_constraint }})</span>{% if not loop.last %}<br>{% endif %}
                 {% endfor %}
-                </ul>
-            </li>
+            </dd>
             {% endif %}
-            <li><strong>Tags:</strong>
-                {% for tag in c.tags %}<span class="badge">{{ tag }}</span>{% endfor %}
-            </li>
-        </ul>
-        <a href="/components/{{ c.name }}/tree" role="button" class="secondary outline">展开依赖树 →</a>
-    </article>
+            <dt>Tags</dt>
+            <dd>
+                {% for tag in c.tags %}<span class="arch-chip" data-tone="muted">{{ tag }}</span>{% endfor %}
+            </dd>
+        </dl>
+        <p style="margin-top: var(--arch-s-3); margin-bottom: 0;">
+            <a href="/components/{{ c.name }}/tree" role="button" class="secondary outline" style="font-size:0.85rem;">展开依赖树 →</a>
+        </p>
+    </div>
 </div>
 
-<!-- REQ-a77efd18:依赖架构图(mermaid) -->
-<section>
-    <h3>依赖架构图</h3>
+{# REQ-a77efd18:依赖架构图(mermaid) #}
+<article class="arch-card">
+    <h4>🕸 依赖架构图</h4>
     {% if graph_dsl %}
-    <div class="mermaid">{{ graph_dsl | safe }}</div>
-    <small>
-        <em>实线 → composed_of(代码层组合);虚线 → runtime_dependency(运行时/编排依赖)。详细层级请展开 <a href="/components/{{ c.name }}/tree">依赖树</a>。</em>
-    </small>
+    <div class="mermaid" style="background: var(--arch-card); padding: var(--arch-s-3); border: 1px solid var(--arch-rule-soft); overflow-x: auto;">{{ graph_dsl | safe }}</div>
+    <p><small style="color:var(--arch-ink-2);">实线 → composed_of(代码层组合);虚线 → runtime_dependency(运行时/编排依赖)。详细层级请展开 <a href="/components/{{ c.name }}/tree">依赖树</a>。</small></p>
     {% else %}
     <p><em>暂无依赖图(可能组件无 composed_of / runtime_dependency,或组件未找到)</em></p>
     {% endif %}
-</section>
+</article>
 
-<!-- 版本历史 -->
-<h3>版本历史</h3>
-{% if versions %}
-<table>
-    <thead>
-        <tr><th>version</th><th>intent</th><th>changelog</th><th>breaking</th><th>时间</th></tr>
-    </thead>
-    <tbody>
-    {% for v in versions %}
-        <tr>
-            <td><code>{{ v.version }}</code></td>
-            <td><span class="badge">{{ v.semver_intent }}</span></td>
-            <td>{{ v.changelog | truncate(60) }}</td>
-            <td>{% if v.breaking_changes %}<span class="badge {{ 'badge-error' if v.semver_intent == 'major' else 'badge-warning' }}">⚠</span>{% else %}-{% endif %}</td>
-            <td><small>{{ v.created_at | format_dt }}</small></td>
-        </tr>
-    {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<p><em>暂无版本记录(用 <code>arch version create {{ c.name }} --version 1.0.0 --intent major --changelog "..." --breaking-changes "..."</code> 登记)</em></p>
-{% endif %}
+{# 版本历史 #}
+<article class="arch-card" data-tone="brass">
+    <h4>📜 版本历史 <span class="arch-muted" style="font-size:0.85rem;">({{ versions | length }} 个)</span></h4>
+    {% if versions %}
+    <table class="arch-table">
+        <thead>
+            <tr>
+                <th style="width:2.5rem;">#</th>
+                <th>version</th>
+                <th>intent</th>
+                <th>changelog</th>
+                <th style="width:4rem;">breaking</th>
+                <th>时间</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for v in versions %}
+            <tr>
+                <td><span class="arch-row-num">{{ loop.index }}</span></td>
+                <td class="arch-td-name">{{ v.version }}</td>
+                <td><span class="arch-chip" data-tone="phosphor">{{ v.semver_intent }}</span></td>
+                <td>{{ v.changelog | truncate(80) }}</td>
+                <td>{% if v.breaking_changes %}<span class="arch-chip" data-tone="{% if v.semver_intent == 'major' %}error{% else %}warn{% endif %}">⚠</span>{% else %}<span class="arch-muted">—</span>{% endif %}</td>
+                <td><span class="arch-muted">{{ v.created_at | format_dt }}</span></td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p><em>暂无版本记录(用 <code>arch version create {{ c.name }} --version 1.0.0 --intent major --changelog "..." --breaking-changes "..."</code> 登记)</em></p>
+    {% endif %}
+</article>
 
-<!-- 关联反馈 -->
-<h3>关联反馈({{ feedbacks | length }})</h3>
-{% if feedbacks %}
-<table>
-    <thead><tr><th>严重度</th><th>摘要</th><th>状态</th><th>决策</th><th>报告人</th><th>时间</th></tr></thead>
-    <tbody>
-    {% for fb in feedbacks %}
-        <tr>
-            <td><span class="badge {{ fb.severity | severity_color }}">{{ fb.severity | severity_zh }}</span></td>
-            <td><a href="/feedbacks/{{ fb.id }}">{{ fb.bug_summary | truncate(60) }}</a></td>
-            <td><span class="badge {{ fb.status | status_color }}">{{ fb.status | status_zh }}</span></td>
-            <td>{% if fb.decision %}<span class="badge {{ fb.decision | decision_color }}">{{ fb.decision | decision_zh }}</span>{% else %}-{% endif %}</td>
-            <td><small>{{ fb.reporter }}</small></td>
-            <td><small>{{ fb.created_at | format_dt }}</small></td>
-        </tr>
-    {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<p><em>暂无反馈(用 <code>arch feedback create</code> 或 GitHub Action 登记)</em></p>
-{% endif %}
+{# 关联反馈 #}
+<article class="arch-card" data-tone="warn">
+    <h4>🐛 关联反馈 <span class="arch-muted" style="font-size:0.85rem;">({{ feedbacks | length }} 个)</span></h4>
+    {% if feedbacks %}
+    <table class="arch-table">
+        <thead>
+            <tr>
+                <th style="width:2.5rem;">#</th>
+                <th>严重度</th>
+                <th>摘要</th>
+                <th>状态</th>
+                <th>决策</th>
+                <th>报告人</th>
+                <th>时间</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for fb in feedbacks %}
+            <tr>
+                <td><span class="arch-row-num">{{ loop.index }}</span></td>
+                <td><span class="arch-chip" data-tone="{% if fb.severity == 'critical' %}error{% elif fb.severity == 'high' %}warn{% else %}muted{% endif %}">{{ fb.severity | severity_zh }}</span></td>
+                <td><a href="/feedbacks/{{ fb.id }}">{{ fb.bug_summary | truncate(80) }}</a></td>
+                <td><span class="arch-chip" data-tone="{% if fb.status in ('fixed','closed') %}ok{% elif fb.status == 'fixing' %}accent{% elif fb.status == 'triaged' %}warn{% else %}muted{% endif %}">{{ fb.status | status_zh }}</span></td>
+                <td>{% if fb.decision %}<span class="arch-chip" data-tone="muted">{{ fb.decision | decision_zh }}</span>{% else %}<span class="arch-muted">—</span>{% endif %}</td>
+                <td><span class="arch-muted">{{ fb.reporter }}</span></td>
+                <td><span class="arch-muted">{{ fb.created_at | format_dt }}</span></td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p><em>暂无反馈(用 <code>arch feedback create</code> 或 GitHub Action 登记)</em></p>
+    {% endif %}
+</article>
 
-<!-- Phase 1.2 关联需求 -->
-<h3>关联需求({{ requirements | length }})</h3>
-{% if requirements %}
-<table>
-    <thead><tr><th>优先级</th><th>类型</th><th>状态</th><th>标题</th><th>负责人</th><th>时间</th></tr></thead>
-    <tbody>
-    {% for r in requirements %}
-        <tr>
-            <td><span class="badge {{ r.priority | req_priority_color }}">{{ r.priority }}</span></td>
-            <td>{{ r.type | req_type_zh }}</td>
-            <td>{{ r.status | req_status_zh }}</td>
-            <td><a href="/requirements/{{ r.id }}">{{ r.title | truncate(60) }}</a></td>
-            <td>{{ r.assignee or '-' }}</td>
-            <td><small>{{ r.created_at | format_dt }}</small></td>
-        </tr>
-    {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<p><em>暂无需求(<a href="/requirements/new?component={{ c.name }}">登记新需求 →</a>)</em></p>
-{% endif %}
+{# Phase 1.2 关联需求 #}
+<article class="arch-card" data-tone="phosphor">
+    <h4>📋 关联需求 <span class="arch-muted" style="font-size:0.85rem;">({{ requirements | length }} 个)</span></h4>
+    {% if requirements %}
+    <table class="arch-table">
+        <thead>
+            <tr>
+                <th style="width:2.5rem;">#</th>
+                <th>优先级</th>
+                <th>类型</th>
+                <th>状态</th>
+                <th>标题</th>
+                <th>负责人</th>
+                <th>时间</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for r in requirements %}
+            <tr>
+                <td><span class="arch-row-num">{{ loop.index }}</span></td>
+                <td><span class="arch-chip" data-tone="{% if r.priority == 'P0' %}error{% elif r.priority == 'P1' %}warn{% else %}muted{% endif %}">{{ r.priority }}</span></td>
+                <td><span class="arch-muted">{{ r.type | req_type_zh }}</span></td>
+                <td><span class="arch-muted">{{ r.status | req_status_zh }}</span></td>
+                <td><a href="/requirements/{{ r.id }}">{{ r.title | truncate(80) }}</a></td>
+                <td><span class="arch-muted">{{ r.assignee or '—' }}</span></td>
+                <td><span class="arch-muted">{{ r.created_at | format_dt }}</span></td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p><em>暂无需求(<a href="/requirements/new?component={{ c.name }}">登记新需求 →</a>)</em></p>
+    {% endif %}
+</article>
 
 <hr>
-<p>
-    <a href="/components" role="button" class="secondary outline">← 返回列表</a>
-    <a href="/components/{{ c.name }}/tree" role="button" class="secondary outline">依赖树</a>
-    {# REQ-f740a3be:delete/restore 互斥显示 — 已归档只能恢复,未归档只能删除 #}
-    {% if c.is_archived %}
-        <form method="post" action="/components/{{ c.name }}/restore" style="display:inline;">
-            <button type="submit" class="primary"
-                    onclick="return confirm('确认恢复组件 {{ c.name }}?恢复后将重新出现在列表中。')">
-                ♻️ 恢复组件
+<div class="arch-toolbar" style="border-bottom:none;">
+    <div class="arch-toolbar-left">
+        <a href="/components" role="button" class="secondary">← 返回列表</a>
+        <a href="/components/{{ c.name }}/tree" role="button" class="secondary outline">依赖树</a>
+    </div>
+    <div class="arch-toolbar-right">
+        {# REQ-f740a3be:delete/restore 互斥显示 #}
+        {% if c.is_archived %}
+            <form method="post" action="/components/{{ c.name }}/restore" style="display:inline;margin:0;">
+                <button type="submit" class="primary"
+                        onclick="return confirm('确认恢复组件 {{ c.name }}?恢复后将重新出现在列表中。')">
+                    ♻️ 恢复组件
+                </button>
+            </form>
+        {% else %}
+            <button type="button" class="contrast outline"
+                    onclick="document.getElementById('delete-dialog').showModal()">
+                🗑️ 删除组件
             </button>
-        </form>
-    {% else %}
-        <button type="button" class="contrast outline"
-                onclick="document.getElementById('delete-dialog').showModal()">
-            🗑️ 删除组件
-        </button>
-    {% endif %}
-</p>
+        {% endif %}
+    </div>
+</div>
 
-{# REQ-f740a3be:PicoCSS 原生 <dialog> 收集删除原因 — 危险操作必须用 modal,不能直接 confirm #}
+{# REQ-f740a3be:PicoCSS 原生 <dialog> 收集删除原因 #}
 {% if not c.is_archived %}
 <dialog id="delete-dialog">
     <article>
@@ -197,21 +245,16 @@
         </form>
     </article>
 </dialog>
-{# 监听 dialog 内 form submit,失败时 alert 错误(避免重定向走丢错误信息) #}
 <script>
 (function() {
     var form = document.getElementById('delete-form');
     if (!form) return;
     form.addEventListener('submit', function(ev) {
-        // 兜底:浏览器原生 form submit 会走 server,服务器返回 JSON 错误时
-        // 浏览器会显示空白。这里我们用 fetch 拦截,失败时 alert + 阻止默认。
         ev.preventDefault();
         var fd = new FormData(form);
         fetch(form.action, { method: 'POST', body: fd, redirect: 'manual' })
             .then(function(r) {
-                // opaqueredirect / manual:302/303 → type='opaqueredirect' status=0
                 if (r.type === 'opaqueredirect' || r.status === 0 || (r.status >= 200 && r.status < 400)) {
-                    // 成功:浏览器自己 follow 之前的 303,或者服务器已重定向 → 走 list
                     window.location.href = '/components';
                 } else {
                     return r.json().then(function(j) {

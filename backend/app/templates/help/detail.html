@@ -3,17 +3,16 @@
 {% block title %}{{ title }}{% endblock %}
 
 {% block content %}
-{# Pygments 代码高亮 CSS(内联,避免 /static 路径问题) #}
+{# Pygments 代码高亮 CSS(内联) #}
 {% if pygments_css %}
 <style>
 {{ pygments_css | safe }}
-.codehilite { background: var(--pico-card-background-color); padding: 0.75rem; border-radius: 4px; overflow-x: auto; }
-.codehilite pre { margin: 0; }
+.codehilite { background: var(--arch-paper); padding: 0.75rem; border: 1px solid var(--arch-rule-soft); overflow-x: auto; }
+.codehilite pre { margin: 0; background: transparent; border: none; padding: 0; }
 </style>
 {% endif %}
 
-{# 面包屑(REQ-010fb7b5 复用 _components/breadcrumb.html partial)
-   注意:set 的局部变量不会传给 include,要用 {% with %} 块显式注入 #}
+{# 面包屑 #}
 {% with crumbs = [
     {"label": "文档", "url": "/help"},
     {"label": category, "url": "/help#category-" ~ category},
@@ -22,15 +21,17 @@
 {% include "_components/breadcrumb.html" with context %}
 {% endwith %}
 
-<article>
-    <header>
-        <small>
-            <span class="badge badge-secondary">{{ category }}</span>
-            <span class="secondary">slug:<code>{{ slug }}</code></span>
-        </small>
-    </header>
-    {# mistune 渲染的 HTML 直接嵌入(mistune 已转义,不需要 | escape) #}
+<div class="arch-title">
+    <h1>{{ title }}</h1>
+    <div class="arch-title-meta">
+        <span class="arch-chip" data-tone="brass">{{ category }}</span><br>
+        <span style="color:var(--arch-ink-3); font-size: 0.8rem;">slug: <code>{{ slug }}</code></span>
+    </div>
+</div>
+
+<article class="arch-card markdown-body" style="line-height: 1.7;">
     {{ html_body | safe }}
+    <hr style="margin: var(--arch-s-5) 0; border: none; border-top: 1px solid var(--arch-rule-soft);">
     <footer>
         <small>
             <a href="/help">← 返回文档列表</a> ·

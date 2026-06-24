@@ -1,18 +1,18 @@
-{# 反馈卡片 partial — FB-G 修复(2026-06-21):Web UI 改只读 #}
-<article class="fb-card" id="fb-{{ fb.id }}">
-    <div class="badges">
-        <span class="badge {{ fb.severity | severity_color }}">{{ fb.severity | severity_zh }}</span>
-        <span class="badge {{ fb.status | status_color }}">{{ fb.status | status_zh }}</span>
-        {% if fb.decision %}<span class="badge {{ fb.decision | decision_color }}">{{ fb.decision | decision_zh }}</span>{% endif %}
+{# 反馈卡片 partial(drafting sheet 风格)— FB-G 修复(2026-06-21):Web UI 改只读 #}
+<article class="arch-kanban-card" id="fb-{{ fb.id }}">
+    <div class="arch-kanban-card-chips">
+        <span class="arch-chip" data-tone="{% if fb.severity == 'critical' %}error{% elif fb.severity == 'high' %}warn{% elif fb.severity == 'medium' %}accent{% else %}muted{% endif %}">{{ fb.severity | severity_zh }}</span>
+        <span class="arch-chip" data-tone="{% if fb.status in ('fixed','closed') %}ok{% elif fb.status == 'fixing' %}accent{% elif fb.status == 'triaged' %}warn{% else %}muted{% endif %}">{{ fb.status | status_zh }}</span>
+        {% if fb.decision %}<span class="arch-chip" data-tone="brass">{{ fb.decision | decision_zh }}</span>{% endif %}
     </div>
-    <div class="summary">
+    <div class="arch-kanban-card-summary">
         <a href="/feedbacks/{{ fb.id }}">{{ fb.bug_summary | truncate(80) }}</a>
     </div>
-    <small class="secondary">
-        {{ fb.reporter }} · {{ fb.created_at | format_dt }}
-        {% if fb.reused_in_projects %} · 影响 {{ fb.reused_in_projects | length }} 个项目{% endif %}
-    </small>
-    {# FB-G 修复(2026-06-21):删 hx-post /patch 表单,Web UI 只读 #}
-    {# 状态推进请用 arch CLI / MCP / GitHub Action #}
-    {# <form>...</form> 已移除 #}
+    <div class="arch-kanban-card-meta">
+        <span>{{ fb.reporter }}</span>
+        <span>·</span>
+        <span>{{ fb.created_at | format_dt }}</span>
+        {% if fb.reused_in_projects %}<span>·</span><span>影响 {{ fb.reused_in_projects | length }} 项目</span>{% endif %}
+    </div>
+    {# FB-G 修复:Web UI 只读 #}
 </article>
