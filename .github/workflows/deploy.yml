@@ -46,6 +46,10 @@ on:
         description: "架构平台 API 地址"
         type: string
         default: "https://arch.intelab.cn"
+      git_ref:
+        description: "git ref(分支名),git pull 时用;arch-platform 默认 main,其他用 master"
+        type: string
+        default: "main"
     secrets:
       ssh_user:
         description: "SSH 用户名"
@@ -102,7 +106,7 @@ jobs:
             else
               echo "[deploy] git pull..."
               cd "$DEPLOY_PATH"
-              git pull origin main
+              git pull origin "${{ inputs.git_ref }}"
               # 兜底:确保 .env 存在
               [ ! -f .env ] && cp .env.example .env || true
             fi
