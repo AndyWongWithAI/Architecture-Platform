@@ -63,6 +63,10 @@ class ComponentCreate(ComponentBase):
 
 class ComponentUpdate(BaseModel):
     title: Optional[str] = None
+    # REQ-fd9b6b90:补 positioning 字段,使 PATCH 能与 Create/Out 对齐
+    # 修复历史同类:FB-38f2024f + REQ-f8fa2992(缺 composed_of),2026-06-22 修;
+    # 现在轮到 positioning(P2.4 反向更新组件定位必备)
+    positioning: Optional[str] = Field(None, min_length=10, max_length=500)
     category: Optional[Category] = None
     status: Optional[ComponentStatus] = None
     tags: Optional[List[str]] = None
