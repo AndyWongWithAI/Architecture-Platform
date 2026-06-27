@@ -62,6 +62,7 @@ def _migrate_legacy_columns(engine):
     迁移记录(追加历史):
       - 2026-06-21:feedbacks 表加 requirement_id 列 + 索引(追溯链)
       - 2026-06-23:components 表加 sub_layer / cross_cutting / runtime_dependency 列(ADR-0001)
+      - 2026-06-27:components 表加 fcr 列(Q3 目标 1 metric,Float NULL)
     """
     from sqlalchemy import inspect, text
     insp = inspect(engine)
@@ -92,3 +93,6 @@ def _migrate_legacy_columns(engine):
             # REQ-d1deda65(2026-06-23):description 字段(存放删除原因)
             if "description" not in cols:
                 conn.execute(text("ALTER TABLE components ADD COLUMN description TEXT"))
+            # Q3 目标 1 / fcr metric(2026-06-27)— audit 上报 feedback coverage ratio
+            if "fcr" not in cols:
+                conn.execute(text("ALTER TABLE components ADD COLUMN fcr FLOAT"))

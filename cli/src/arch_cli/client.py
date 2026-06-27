@@ -124,6 +124,12 @@ class ArchClient:
         """REQ-d1deda65:撤销软删除(is_archived=false)"""
         return self.request("POST", f"/api/v1/components/{name}/restore")
 
+    def report_fcr(self, name: str, fcr: float) -> dict:
+        """Q3 目标 1 / fcr metric(2026-06-27)— 上报 component 的 feedback coverage ratio
+        由 audit --scope=skills --modules=principles_depth 跑完后调用
+        """
+        return self.request("PUT", f"/api/v1/components/{name}/fcr", json={"fcr": fcr})
+
     # ——— Version ———
 
     def list_versions(self, component_name: str) -> dict:

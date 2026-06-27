@@ -100,6 +100,11 @@ arch component list --layer L1_platform
 
 启动顺序:Phase 0(0.5 周,纯文档)→ Phase 1(2 周 MVP 后端,等需求)→ Phase 2(1 周 CLI)→ Phase 3(0.5 周 GitHub Action)→ Phase 4(2 周 Web UI)→ Phase 5(0.5 周数据导入)。
 
+## Q3 指标(2026-07~09)
+
+- `fcr` — feedback coverage ratio,见 [`docs/fcr-metric.md`](docs/fcr-metric.md)(Q3 目标 1)
+- `tcr` — test coverage ratio(Q3 目标 2,见 `specs/2026-q3-roadmap.md`)
+
 ## 关联
 
 - 设计依据:CLAUDE.md(架构 / 复用 / 资产 / 反馈 / 一致性 / 定位稳定性 6 原则)

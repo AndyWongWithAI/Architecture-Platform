@@ -91,12 +91,23 @@ class ComponentOut(ComponentBase, ORMBase):
     current_version_id: Optional[str] = None
     # REQ-d1deda65:软删除标记(对齐 RequirementOut/LiteratureOut)
     is_archived: bool = False
+    # Q3 目标 1 / fcr metric(2026-06-27)— feedback coverage ratio
+    # 已加 emit_fatal 的 fatal 路径数 / 全部 fatal 路径数,NULL 表示未上报
+    fcr: Optional[float] = None
     created_at: datetime
     updated_at: datetime
 
 
 class ComponentDetail(ComponentOut):
     versions: List["VersionOut"] = []
+
+
+# Q3 目标 1 / fcr metric(2026-06-27)— audit 上报专用 schema
+class FcrUpdate(BaseModel):
+    """PUT /api/v1/components/{id}/fcr 的请求体
+    范围 0.0~1.0;由 Pydantic 校验,失败返回 422
+    """
+    fcr: float = Field(..., ge=0.0, le=1.0)
 
 
 class ComponentList(BaseModel):

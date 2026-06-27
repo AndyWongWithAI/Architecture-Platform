@@ -416,3 +416,23 @@ def restore_cmd(name):
         console.print(f"[red]✗ 恢复失败:[/red] {e}")
         sys.exit(1)
     console.print(f"[green]✓ 组件已恢复:[/green] {result['id'][:8]} ({result.get('name')})")
+
+
+# Q3 目标 1 / fcr metric(2026-06-27)— 上报 component 的 feedback coverage ratio
+# 设计动机:audit --scope=skills --modules=principles_depth 跑完后调用本命令上报
+# 数据流:audit 计算 fcr → 调用 `arch component report-fcr --name=<comp> --fcr=<0.0-1.0>`
+#        → PUT /api/v1/components/{name}/fcr → dashboard 读取
+@cli.command(name="report-fcr", help="上报组件的 fcr(feedback coverage ratio,0.0~1.0)")
+@click.option("--name", required=True, help="组件名(name slug)")
+@click.option("--fcr", required=True, type=click.FloatRange(0.0, 1.0),
+              help="feedback coverage ratio,范围 0.0~1.0(已加 emit_fatal 的 fatal 路径数 / 全部 fatal 路径数)")
+def report_fcr_cmd(name, fcr):
+    cfg = Config.load()
+    console = make_console(cfg.output_color)
+    client = ArchClient(cfg)
+    try:
+        result = client.report_fcr(name, fcr)
+    except Exception as e:
+        console.print(f"[red]✗ 上报失败:[/red] {e}")
+        sys.exit(1)
+    console.print(f"[green]✓ fcr 已上报:[/green] {result['name']} = {result['fcr']}")

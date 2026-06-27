@@ -152,6 +152,11 @@ class Component(Base):
     # 软删除独立 bool(REQ-d1deda65,2026-06-23)— 对齐 Requirement/Literature.is_archived 隔离原则
     is_archived = Column(Boolean, default=False, nullable=False, index=True)
 
+    # Q3 目标 1 / fcr metric(2026-06-27)— 已加 emit_fatal 的 fatal 路径数 / 全部 fatal 路径数
+    # 默认 NULL(未上报过),取值范围 0.0~1.0
+    # 由 audit --scope=skills --modules=principles_depth 跑完后调用 PUT /components/{id}/fcr 上报
+    fcr = Column(Float, nullable=True, default=None)
+
     created_at = Column(DateTime, default=now_utc, nullable=False)
     updated_at = Column(DateTime, default=now_utc, onupdate=now_utc, nullable=False)
 

@@ -13,6 +13,7 @@ from ..schemas import (
     ComponentTreeNode, ComponentUsage,
     ComponentCreate, ComponentUpdate,
     VersionCreate, VersionOut, VersionList,
+    FcrUpdate,
 )
 from ..auth import require_api_key
 
@@ -392,6 +393,39 @@ def restore_component(component_id: str, db: Session = Depends(get_db)):
     if not comp.is_archived:
         raise HTTPException(422, "component is not archived")
     comp.is_archived = False
+    db.commit()
+    db.refresh(comp)
+    return comp
+
+
+# ===== Q3 目标 1 / fcr metric(2026-06-27)=====
+# audit --scope=skills --modules=principles_depth 跑完后自动上报 fcr 到本端点
+# 设计动机:feedback coverage ratio 是 dashboard 核心指标,需要在 Component 实体上存一个标量
+# 业务规则:
+#   - 支持按 id(UUID)或 name(slug)定位 component
+#   - 范围 0.0~1.0,超出由 Pydantic Field(ge=0, le=1)直接 422
+#   - 不需要 API key(audit 服务在同环境,无暴露面风险;后续可加)
+
+
+@router.put(
+    "/{component_id}/fcr",
+    response_model=ComponentOut,
+)
+def report_fcr(
+    component_id: str,
+    payload: FcrUpdate,
+    db: Session = Depends(get_db),
+):
+    """上报 component 的 fcr(feedback coverage ratio)
+    Body: {"fcr": 0.85}
+    Returns: ComponentOut(含新 fcr + updated_at)
+    """
+    comp = db.query(Component).filter(
+        (Component.id == component_id) | (Component.name == component_id)
+    ).first()
+    if not comp:
+        raise HTTPException(404, f"component '{component_id}' not found")
+    comp.fcr = payload.fcr
     db.commit()
     db.refresh(comp)
     return comp
