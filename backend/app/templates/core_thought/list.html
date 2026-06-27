@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}核心思想列表{% endblock %}
+{% block content %}
+<div class="arch-title">
+    <h1>核心思想</h1>
+    <div class="arch-title-meta">
+        <strong>{{ total }}</strong> 条<br>
+        <a href="/core-thoughts/new" class="primary" style="font-size: 0.85rem;">+ 登记核心思想</a>
+    </div>
+</div>
+
+<form method="get" action="/core-thoughts" class="arch-toolbar" style="border-bottom: none; margin-bottom: var(--arch-s-4);">
+    <div class="arch-toolbar-left">
+        <input type="search" name="q" value="{{ filters.q or '' }}"
+               placeholder="搜索标题 / 论点..."
+               onchange="this.form.submit()">
+        <select name="tag" onchange="this.form.submit()">
+            <option value="">所有标签</option>
+            {% for t in all_tags %}
+            <option value="{{ t }}" {% if filters.tag == t %}selected{% endif %}>{{ t }}</option>
+            {% endfor %}
+        </select>
+    </div>
+</form>
+
+{% if items %}
+<table class="arch-table">
+    <thead>
+        <tr>
+            <th style="width: 2.5rem;">#</th>
+            <th>标题</th>
+            <th style="width: 5rem;">状态</th>
+            <th>标签</th>
+            <th>登记人</th>
+            <th>登记时间</th>
+            <th style="width: 5rem;">道在 component</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for ct in items %}
+        <tr>
+            <td><span class="arch-row-num">{{ loop.index }}</span></td>
+            <td>
+                <a href="/core-thoughts/{{ ct.id }}">{{ ct.title | truncate(60) }}</a>
+                {% if ct.is_archived %}<span class="arch-chip" data-tone="warn" style="margin-left: 0.5rem;">已归档</span>{% endif %}
+            </td>
+            <td>
+                <span class="arch-chip" data-tone="{% if ct.status == 'active' %}ok{% elif ct.status == 'draft' %}muted{% elif ct.status == 'superseded' %}warn{% else %}error{% endif %}">{{ ct.status }}</span>
+            </td>
+            <td>
+                {% for t in ct.tags or [] %}
+                <a href="/core-thoughts?tag={{ t }}" style="text-decoration: none; margin-right: 0.25rem;">
+                    <span class="arch-chip" data-tone="brass" style="font-size: 0.7rem;">{{ t }}</span>
+                </a>
+                {% endfor %}
+            </td>
+            <td><span class="arch-muted">{{ ct.proposer or '—' }}</span></td>
+            <td><span class="arch-muted">{{ ct.created_at | format_dt }}</span></td>
+            <td>
+                {% if ct.examples %}
+                <span class="arch-chip" data-tone="phosphor" style="font-size: 0.7rem;">{{ ct.examples | length }}</span>
+                {% else %}
+                <span class="arch-muted">—</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<article class="arch-card" style="text-align: center;">
+    <p><em>暂无核心思想。<a href="/core-thoughts/new">登记第一条 →</a></em></p>
+</article>
+{% endif %}
+{% endblock %}

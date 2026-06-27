@@ -362,6 +362,49 @@ class Literature(Base):
     is_archived = Column(Boolean, default=False, nullable=False)
 
 
+# ===== CoreThought 核心思想(REQ-968b1c99 / ADR-0003,2026-06-27)=====
+# 平台第 6 大事务型实体 — 道层面资产
+# 用途:沉淀架构原则 / 哲学 / 长期愿景,跨组件引用
+# 不挂 component_id,通过 tags / examples[].component_id 跨实体引用
+class CoreThoughtStatus(str, enum.Enum):
+    """轻量状态机(ADR-0003 决策 5) — 不校验转换矩阵
+    - draft: 起草中
+    - active: 已生效(被多份后续工作引用)
+    - superseded: 被新道取代(保留历史)
+    - archived: 主动归档(与 is_archived 软删除正交)
+    """
+    draft = "draft"
+    active = "active"
+    superseded = "superseded"
+    archived = "archived"
+
+
+class CoreThought(Base):
+    __tablename__ = "core_thoughts"
+
+    id = Column(String(36), primary_key=True, default=gen_uuid)
+    title = Column(String(500), nullable=False, index=True)  # 一句话主张
+    thesis = Column(Text, nullable=False)                     # 2-5 段精炼展开(Markdown)
+    rationale = Column(Text, nullable=True)                   # 背景/困局/对比(Markdown)
+    how_to_apply = Column(Text, nullable=True)                # 应用指引(Markdown)
+    origin = Column(String(200), nullable=True)               # 来源标注
+    status = Column(Enum(CoreThoughtStatus),
+                    default=CoreThoughtStatus.draft,
+                    nullable=False,
+                    index=True)
+    tags = Column(JSON, default=list)                         # 跨实体共享 namespace
+    examples = Column(JSON, default=list)                     # [{component_id, note}, ...] 道 → component 强引用
+    proposer = Column(String(100), nullable=False, default="api")  # 登记人
+    # 软删除独立 bool(对齐 Literature / Requirement 一致性,与 status 正交)
+    is_archived = Column(Boolean, default=False, nullable=False, index=True)
+    created_at = Column(DateTime, default=now_utc, nullable=False)
+    updated_at = Column(DateTime, default=now_utc, onupdate=now_utc, nullable=False)
+
+    __table_args__ = (
+        Index("ix_core_thoughts_archived_status", "is_archived", "status"),
+    )
+
+
 # ===== Audit Module(REQ-7328c640, 2026-06-23 每日 04:00 自审)=====
 # 数据源:`~/.claude/skills/audit/scripts/scan.py --json`
 # 由 deploy/audit.sh 在 #1 上以 cron 方式每天 04:00 触发,POST 到 /api/v1/audit/runs。

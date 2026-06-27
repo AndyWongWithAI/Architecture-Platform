@@ -123,6 +123,42 @@ def print_requirements(requirements: list[dict], console: Console) -> None:
     console.print(t)
 
 
+def print_core_thoughts(thoughts: list[dict], console: Console) -> None:
+    """打印核心思想列表(对齐 print_requirements 风格)"""
+    if not thoughts:
+        console.print("[yellow](无核心思想)[/yellow]")
+        return
+    t = Table(title="核心思想", show_header=True, header_style="bold magenta")
+    t.add_column("id", style="dim", no_wrap=True)
+    t.add_column("status")
+    t.add_column("tags", style="cyan")
+    t.add_column("proposer")
+    t.add_column("examples", justify="right")
+    t.add_column("title")
+
+    status_color = {
+        "draft": "dim",
+        "active": "green",
+        "superseded": "yellow",
+        "archived": "red",
+    }
+    for ct in thoughts:
+        st = ct.get("status", "")
+        st_styled = f"[{status_color.get(st, 'white')}]{st}[/{status_color.get(st, 'white')}]"
+        tags = ct.get("tags") or []
+        tags_str = ", ".join(tags[:3]) + ("..." if len(tags) > 3 else "")
+        examples = ct.get("examples") or []
+        t.add_row(
+            (ct.get("id") or "")[:8],
+            st_styled,
+            tags_str or "-",
+            ct.get("proposer") or "-",
+            str(len(examples)),
+            (ct.get("title") or "")[:40],
+        )
+    console.print(t)
+
+
 def print_tree(node: dict, console: Console, indent: int = 0) -> None:
     """递归打印依赖树"""
     comp = node.get("component", {})

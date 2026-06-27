@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}{{ ct.title }}{% endblock %}
+{% block content %}
+<div class="arch-title">
+    <h1>{{ ct.title }}</h1>
+    <div class="arch-title-meta">
+        <span class="arch-chip" data-tone="{% if ct.status == 'active' %}ok{% elif ct.status == 'draft' %}muted{% elif ct.status == 'superseded' %}warn{% else %}error{% endif %}">{{ ct.status }}</span><br>
+        <a href="/core-thoughts/{{ ct.id }}/edit" style="font-size: 0.85rem; color: var(--arch-ink-2);">✏️ 编辑</a>
+        <span class="arch-title-id" style="margin-left: 0.5rem;">{{ ct.id[:8] }}</span>
+    </div>
+</div>
+
+<article class="arch-card" data-tone="brass" style="padding: var(--arch-s-3) var(--arch-s-4);">
+    <dl class="arch-kvgrid">
+        <dt>登记人</dt><dd><code>{{ ct.proposer or '—' }}</code></dd>
+        <dt>登记时间</dt><dd>{{ ct.created_at | format_dt }}</dd>
+        <dt>更新时间</dt><dd>{{ ct.updated_at | format_dt }}</dd>
+        {% if ct.origin %}<dt>来源</dt><dd><code>{{ ct.origin }}</code></dd>{% endif %}
+        <dt>道在 component</dt>
+        <dd>
+            {% if ct.examples %}
+            <span class="arch-chip" data-tone="phosphor">{{ ct.examples | length }} 个</span>
+            {% else %}
+            <span class="arch-muted">—</span>
+            {% endif %}
+        </dd>
+        {% if ct.is_archived %}<dt>归档</dt><dd><span class="arch-chip" data-tone="warn">已归档</span></dd>{% endif %}
+    </dl>
+</article>
+
+{% if ct.thesis %}
+<article class="arch-card" data-tone="brass">
+    <h4>📜 论点</h4>
+    <div class="arch-prose">{{ ct.thesis | markdown | safe }}</div>
+</article>
+{% endif %}
+
+{% if ct.rationale %}
+<article class="arch-card" data-tone="accent">
+    <h4>💡 背景</h4>
+    <div class="arch-prose">{{ ct.rationale | markdown | safe }}</div>
+</article>
+{% endif %}
+
+{% if ct.how_to_apply %}
+<article class="arch-card" data-tone="phosphor">
+    <h4>🛠 应用指引</h4>
+    <div class="arch-prose">{{ ct.how_to_apply | markdown | safe }}</div>
+</article>
+{% endif %}
+
+{% if ct.tags %}
+<article class="arch-card" data-tone="muted">
+    <h4>🏷️ 标签</h4>
+    <p>
+        {% for t in ct.tags %}
+        <a href="/core-thoughts?tag={{ t }}" style="text-decoration: none; margin-right: 0.25rem;">
+            <span class="arch-chip" data-tone="brass">{{ t }}</span>
+        </a>
+        {% endfor %}
+    </p>
+</article>
+{% endif %}
+
+{% if ct.examples %}
+<article class="arch-card" data-tone="brass">
+    <h4>🔗 道在 component 的应用</h4>
+    <ul style="margin: 0; padding-left: 1.25rem;">
+        {% for ex in ct.examples %}
+        <li>
+            <code>{{ ex.component_id | truncate(20) }}</code>
+            {% if ex.note %}<span class="arch-muted">— {{ ex.note }}</span>{% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+</article>
+{% endif %}
+
+<hr>
+<div class="arch-toolbar" style="border-bottom:none;">
+    <div class="arch-toolbar-left">
+        <a href="/core-thoughts" role="button" class="secondary">← 返回列表</a>
+    </div>
+</div>
+{% endblock %}

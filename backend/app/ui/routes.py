@@ -273,6 +273,25 @@ async def component_detail(
     # 直接走 DB(避免再调一次 API);build_component_graph 内部容错
     graph_dsl = build_component_graph(name, db)
 
+    # REQ-968b1c99:被核心思想引用(component_detail 反向引用块)
+    # P3.5 review 红旗 14 修复:include_archived=true,避免 archived 的核心思想引用漏显示
+    # 当前种子规模够用(limit=200 上限),未来突破需引入 by-component 反向索引端点
+    all_cts = await _safe_get(
+        "/api/v1/core-thoughts",
+        {"limit": 200, "include_archived": "true"},
+        default={"items": []},
+    )
+    referenced_by_core_thoughts: list[dict] = []
+    for ct in all_cts.get("items", []):
+        for ex in ct.get("examples") or []:
+            if ex.get("component_id") == component.get("id"):
+                referenced_by_core_thoughts.append({
+                    "id": ct["id"],
+                    "title": ct["title"],
+                    "note": ex.get("note"),
+                })
+                break  # 一个 core_thought 多次引用同一 component 只列一次
+
     return templates.TemplateResponse(
         request,
         "components/detail.html",
@@ -282,6 +301,7 @@ async def component_detail(
             "feedbacks": feedbacks.get("items", []),
             "requirements": requirements.get("items", []),
             "graph_dsl": graph_dsl,
+            "referenced_by_core_thoughts": referenced_by_core_thoughts,
         },
     )
 
@@ -1290,3 +1310,182 @@ async def audit_detail(request: Request, run_id: str):
             "principle_order": order,
         },
     )
+
+
+# ===== CoreThought 知识资产(REQ-968b1c99,2026-06-27)=====
+# 平台第 6 大事务型实体 — 道层面资产(治理哲学/长期愿景)
+# 设计:对齐 Literature UI(列表 + 详情 + 表单 + 编辑)
+import json as _json  # 用于 examples 字段的 JSON 解析
+
+
+def _prepare_ct_for_form(ct: dict) -> dict:
+    """为 edit 表单准备渲染数据(tags CSV / examples JSON)"""
+    ct = dict(ct)
+    ct["tags_csv"] = ", ".join(ct.get("tags") or [])
+    ct["examples_json"] = _json.dumps(ct.get("examples") or [], ensure_ascii=False, indent=2)
+    return ct
+
+
+@router.get("/core-thoughts", response_class=HTMLResponse)
+async def core_thoughts_list(
+    request: Request,
+    q: Optional[str] = None,
+    tag: Optional[str] = None,
+):
+    """核心思想列表(支持搜索 + tag 过滤)"""
+    params = {"limit": 200}
+    if q:
+        params["q"] = q
+    if tag:
+        params["tag"] = tag
+    data = await _safe_get(
+        "/api/v1/core-thoughts", params, default={"items": [], "total": 0}
+    )
+    # 聚合所有 tags(用于 filter dropdown)
+    all_tags = set()
+    for ct in data.get("items", []):
+        for t in ct.get("tags") or []:
+            all_tags.add(t)
+    return templates.TemplateResponse(
+        request,
+        "core_thought/list.html",
+        {
+            "items": data.get("items", []),
+            "total": data.get("total", 0),
+            "filters": {"q": q, "tag": tag},
+            "all_tags": sorted(all_tags),
+        },
+    )
+
+
+@router.get("/core-thoughts/new", response_class=HTMLResponse)
+async def core_thought_new_form(request: Request):
+    """新建核心思想表单"""
+    return templates.TemplateResponse(request, "core_thought/new.html", {})
+
+
+@router.post("/core-thoughts/create")
+async def core_thought_create_from_ui(
+    request: Request,
+    title: str = Form(...),
+    thesis: str = Form(...),
+    rationale: Optional[str] = Form(None),
+    how_to_apply: Optional[str] = Form(None),
+    origin: Optional[str] = Form(None),
+    status: Optional[str] = Form(None),
+    tags: Optional[str] = Form(None),
+    examples: Optional[str] = Form(None),
+    proposer: str = Form("web-ui"),
+):
+    """Web UI 创建核心思想(代理到 POST /api/v1/core-thoughts)
+
+    examples 字段是 JSON 字符串,前端 textarea 输入;
+    解析失败时返回 422 + 错误信息(前端可展示)。
+    """
+    payload = {"title": title, "thesis": thesis, "proposer": proposer}
+    if rationale:
+        payload["rationale"] = rationale
+    if how_to_apply:
+        payload["how_to_apply"] = how_to_apply
+    if origin:
+        payload["origin"] = origin
+    if status:
+        payload["status"] = status
+    if tags:
+        payload["tags"] = [t.strip() for t in tags.split(",") if t.strip()]
+    if examples and examples.strip():
+        try:
+            ex_list = _json.loads(examples)
+            if not isinstance(ex_list, list):
+                raise ValueError("examples must be a JSON array")
+            payload["examples"] = ex_list
+        except (ValueError, _json.JSONDecodeError) as e:
+            return JSONResponse(
+                {"error": f"examples JSON 解析失败:{e}"},
+                status_code=422,
+            )
+    try:
+        created = await api_post("/api/v1/core-thoughts", payload)
+    except HTTPException as e:
+        return JSONResponse({"error": str(e.detail)}, status_code=e.status_code)
+    return RedirectResponse(f"/core-thoughts/{created['id']}", status_code=303)
+
+
+@router.get("/core-thoughts/{ct_id}", response_class=HTMLResponse)
+async def core_thought_detail(request: Request, ct_id: str):
+    """核心思想详情页(论点/背景/应用指引走 markdown 渲染)"""
+    ct = await _safe_get(f"/api/v1/core-thoughts/{ct_id}")
+    if not ct:
+        raise HTTPException(status_code=404, detail=f"核心思想 {ct_id} 不存在")
+    return templates.TemplateResponse(
+        request,
+        "core_thought/detail.html",
+        {"ct": ct},
+    )
+
+
+@router.get("/core-thoughts/{ct_id}/edit", response_class=HTMLResponse)
+async def core_thought_edit_form(request: Request, ct_id: str):
+    """编辑核心思想表单(GET)"""
+    ct = await _safe_get(f"/api/v1/core-thoughts/{ct_id}")
+    if not ct:
+        raise HTTPException(status_code=404, detail=f"核心思想 {ct_id} 不存在")
+    return templates.TemplateResponse(
+        request,
+        "core_thought/edit.html",
+        {"ct": _prepare_ct_for_form(ct)},
+    )
+
+
+@router.post("/core-thoughts/{ct_id}/edit")
+async def core_thought_edit_submit(
+    request: Request,
+    ct_id: str,
+    title: Optional[str] = Form(None),
+    thesis: Optional[str] = Form(None),
+    rationale: Optional[str] = Form(None),
+    how_to_apply: Optional[str] = Form(None),
+    origin: Optional[str] = Form(None),
+    status: Optional[str] = Form(None),
+    tags: Optional[str] = Form(None),
+    examples: Optional[str] = Form(None),
+):
+    """编辑核心思想提交(POST → 代理 PATCH,303 重定向)
+
+    定位稳定性:title 一旦登记不可改(前端 edit.html 把 title 字段 disabled,
+    这里也忽略 title 提交,避免误改)。
+    """
+    payload = {}
+    if thesis:
+        payload["thesis"] = thesis
+    if rationale is not None:
+        payload["rationale"] = rationale or None
+    if how_to_apply is not None:
+        payload["how_to_apply"] = how_to_apply or None
+    if origin is not None:
+        payload["origin"] = origin or None
+    if status:
+        payload["status"] = status
+    if tags is not None:
+        payload["tags"] = [t.strip() for t in tags.split(",") if t.strip()]
+    if examples is not None and examples.strip():
+        try:
+            ex_list = _json.loads(examples)
+            if not isinstance(ex_list, list):
+                raise ValueError("examples must be a JSON array")
+            payload["examples"] = ex_list
+        except (ValueError, _json.JSONDecodeError) as e:
+            return JSONResponse(
+                {"error": f"examples JSON 解析失败:{e}"},
+                status_code=422,
+            )
+    if not payload:
+        return RedirectResponse(f"/core-thoughts/{ct_id}", status_code=303)
+    try:
+        await api_patch(f"/api/v1/core-thoughts/{ct_id}", payload)
+    except HTTPException as e:
+        return JSONResponse(
+            {"error": str(e.detail), "payload_sent": payload},
+            status_code=e.status_code,
+        )
+    return RedirectResponse(f"/core-thoughts/{ct_id}", status_code=303)

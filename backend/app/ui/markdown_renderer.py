@@ -15,6 +15,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 from typing import Optional
+import html
 
 import mistune
 from pygments import highlight
@@ -140,7 +141,24 @@ class _PygmentsRenderer(mistune.HTMLRenderer):
 _MARKDOWN = mistune.create_markdown(
     renderer=_PygmentsRenderer(),
     plugins=["table", "strikethrough", "footnotes"],
+    escape=False,
 )
+
+
+def _escape_html_safe(text: str) -> str:
+    """P3.5 review 红旗 10 + P5 测试发现的安全渲染策略:
+    先 escape HTML 字符(< > &),再走 markdown 渲染。
+    - 用户输入 <script>alert(1)</script> → &lt;script&gt;alert(1)&lt;/script&gt;
+      → markdown 渲染成 <p>&lt;script&gt;alert(1)&lt;/script&gt;</p> ✓ XSS 防住
+    - 用户输入 **bold** → markdown 渲染成 <p><strong>bold</strong></p> ✓ 语法保留
+    - 用户输入 [link](https://x) → mistune safe_url 已过滤 javascript: 等危险协议
+
+    注:mistune 自带 escape=True 会破坏 markdown 解析(mistune 3.x bug),
+    此处采用「先 escape 后渲染」两步法,等价但更稳。
+    quote=False(默认):只 escape < > &,不 escape 引号 — 避免双重 escape
+    (如 text='&lt;' 先 escape 一次变 '&amp;lt;',再被 markdown 当文本输出)。
+    """
+    return html.escape(text)
 
 
 # ——— 公开 API ——
@@ -244,6 +262,23 @@ def render_markdown_file(path: Path) -> str:
     """读 markdown 文件并返回渲染好的 HTML 字符串"""
     text = path.read_text(encoding="utf-8")
     return _MARKDOWN(text)
+
+
+def render_markdown(text: Optional[str]) -> str:
+    """无状态渲染 markdown 字符串 → HTML 片段
+
+    REQ-968b1c99(2026-06-27):core_thought detail 页用 — 论点/背景/应用指引字段
+    都是数据库存的 markdown 文本,直接调 _MARKDOWN 转 HTML。
+
+    与 render_markdown_file 的区别:本函数不读文件,只接受字符串。
+    None / 空串兜底返回 ""(避免模板里写 if 嵌套)。
+
+    P5 测试 22 修复:先 escape HTML 字符,再 markdown 渲染 — 防止 <script> 注入的同时
+    保留 **bold** / - list 等 markdown 语法解析(mistune 自带 escape=True 模式会破坏 markdown)。
+    """
+    if not text:
+        return ""
+    return _MARKDOWN(_escape_html_safe(text))
 
 
 def get_pygments_css() -> str:

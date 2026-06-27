@@ -34,6 +34,7 @@ from .commands.feedback import cli as feedback_cli
 from .commands.requirement import cli as requirement_cli
 from .commands.doubt import cli as doubt_cli
 from .commands.deployment import cli as deployment_cli
+from .commands.core_thought import cli as core_thought_cli
 from .commands.search import search_cmd, use_cmd, tree_cmd
 from .commands.config_cmd import cli as config_cli
 from .commands.outdated import outdated_cmd, lock_cmd
@@ -63,6 +64,7 @@ main.add_command(feedback_cli)
 main.add_command(requirement_cli)
 main.add_command(doubt_cli)
 main.add_command(deployment_cli)
+main.add_command(core_thought_cli)
 main.add_command(config_cli)
 main.add_command(search_cmd)
 main.add_command(use_cmd)

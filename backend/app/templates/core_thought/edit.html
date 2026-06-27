@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}编辑核心思想 · {{ ct.title }}{% endblock %}
+{% block content %}
+<div class="arch-title">
+    <h1>编辑核心思想</h1>
+    <div class="arch-title-meta">
+        <a href="/core-thoughts/{{ ct.id }}" style="font-size: 0.85rem; color: var(--arch-ink-2);">← 返回详情</a><br>
+        <span class="arch-title-id">{{ ct.id[:8] }}</span>
+    </div>
+</div>
+
+<article class="arch-card" data-tone="brass">
+    <form method="post" action="/core-thoughts/{{ ct.id }}/edit">
+        {# 定位稳定性原则:title 一旦登记不可修改(对齐 requirement.edit 的做法) #}
+        <input type="hidden" name="title" value="{{ ct.title }}">
+        <label style="display:block; margin-bottom: var(--arch-s-3);">
+            <span style="display:block; font-family:'JetBrains Mono', monospace; font-size: var(--arch-fs-xs); color: var(--arch-ink-2); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: var(--arch-s-1);">标题 <small>(定位锁定,不可改)</small></span>
+            <input type="text" value="{{ ct.title }}" disabled maxlength="500">
+        </label>
+
+        <label style="display:block; margin-bottom: var(--arch-s-3);">
+            <span style="display:block; font-family:'JetBrains Mono', monospace; font-size: var(--arch-fs-xs); color: var(--arch-ink-2); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: var(--arch-s-1);">论点 * <small>(Markdown)</small></span>
+            <textarea name="thesis" required rows="8">{{ ct.thesis or '' }}</textarea>
+        </label>
+
+        <label style="display:block; margin-bottom: var(--arch-s-3);">
+            <span style="display:block; font-family:'JetBrains Mono', monospace; font-size: var(--arch-fs-xs); color: var(--arch-ink-2); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: var(--arch-s-1);">背景 <small>(Markdown)</small></span>
+            <textarea name="rationale" rows="6">{{ ct.rationale or '' }}</textarea>
+        </label>
+
+        <label style="display:block; margin-bottom: var(--arch-s-3);">
+            <span style="display:block; font-family:'JetBrains Mono', monospace; font-size: var(--arch-fs-xs); color: var(--arch-ink-2); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: var(--arch-s-1);">应用指引 <small>(Markdown)</small></span>
+            <textarea name="how_to_apply" rows="4">{{ ct.how_to_apply or '' }}</textarea>
+        </label>
+
+        <label style="display:block; margin-bottom: var(--arch-s-3);">
+            <span style="display:block; font-family:'JetBrains Mono', monospace; font-size: var(--arch-fs-xs); color: var(--arch-ink-2); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: var(--arch-s-1);">来源标注 <small>(origin)</small></span>
+            <input type="text" name="origin" value="{{ ct.origin or '' }}" maxlength="200">
+        </label>
+
+        <label style="display:block; margin-bottom: var(--arch-s-3);">
+            <span style="display:block; font-family:'JetBrains Mono', monospace; font-size: var(--arch-fs-xs); color: var(--arch-ink-2); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: var(--arch-s-1);">状态</span>
+            <select name="status">
+                {% for s in ['draft', 'active', 'superseded', 'archived'] %}
+                <option value="{{ s }}" {% if ct.status == s %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+            </select>
+        </label>
+
+        <label style="display:block; margin-bottom: var(--arch-s-3);">
+            <span style="display:block; font-family:'JetBrains Mono', monospace; font-size: var(--arch-fs-xs); color: var(--arch-ink-2); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: var(--arch-s-1);">标签 <small>(逗号分隔)</small></span>
+            <input type="text" name="tags" value="{{ ct.tags_csv or '' }}">
+        </label>
+
+        <label style="display:block; margin-bottom: var(--arch-s-4);">
+            <span style="display:block; font-family:'JetBrains Mono', monospace; font-size: var(--arch-fs-xs); color: var(--arch-ink-2); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: var(--arch-s-1);">道在 component 的应用 <small>(examples,JSON 数组)</small></span>
+            <textarea name="examples" rows="6">{{ ct.examples_json or '[]' }}</textarea>
+        </label>
+
+        <div class="arch-toolbar" style="border-bottom: none;">
+            <div class="arch-toolbar-left">
+                <button type="submit">保存修改</button>
+                <a href="/core-thoughts/{{ ct.id }}" role="button" class="secondary">取消</a>
+            </div>
+        </div>
+    </form>
+</article>
+{% endblock %}
