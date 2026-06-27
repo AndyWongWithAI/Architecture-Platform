@@ -275,3 +275,26 @@ class ArchClient:
 
     def healthz(self) -> dict:
         return self.request("GET", "/healthz")
+
+    # ——— CoreThought(REQ-968b1c99,第 6 大实体)———
+
+    def list_core_thoughts(self, **filters) -> dict:
+        return self.request("GET", "/api/v1/core-thoughts", params=filters)
+
+    def get_core_thought(self, ct_id: str) -> dict:
+        return self.request("GET", f"/api/v1/core-thoughts/{ct_id}")
+
+    def create_core_thought(self, data: dict) -> dict:
+        return self.request("POST", "/api/v1/core-thoughts", json=data)
+
+    def update_core_thought(self, ct_id: str, data: dict) -> dict:
+        return self.request("PATCH", f"/api/v1/core-thoughts/{ct_id}", json=data)
+
+    def archive_core_thought(self, ct_id: str) -> dict:
+        return self.request("DELETE", f"/api/v1/core-thoughts/{ct_id}")
+
+    def restore_core_thought(self, ct_id: str) -> dict:
+        return self.request("POST", f"/api/v1/core-thoughts/{ct_id}/restore")
+
+    def list_core_thoughts_by_tag(self, tag: str) -> dict:
+        return self.request("GET", f"/api/v1/core-thoughts/by-tag/{tag}")

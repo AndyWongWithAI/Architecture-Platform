@@ -9,6 +9,7 @@ from .models import (
     FeedbackSeverity, FeedbackStatus, FeedbackDecision,
     RuntimeDependencyRelation,
     RequirementType, RequirementPriority, RequirementStatus,
+    CoreThoughtStatus,
 )
 
 
@@ -481,4 +482,57 @@ class AuditRunList(BaseModel):
 
 class AuditFindingList(BaseModel):
     items: List[AuditFindingOut]
+    total: int
+
+
+# ===== CoreThought 核心思想(REQ-968b1c99 / ADR-0003,2026-06-27)=====
+# 道层面资产 — 沉淀架构原则 / 哲学 / 长期愿景
+# 状态机为轻量(4 态,不校验转换),与 Literature 模式保持一致
+
+class CoreThoughtExample(BaseModel):
+    """examples[] 元素 — 道在 component 上的具体应用
+    component_id 弱引用(初版不强制存在,后续可加 Pydantic 校验)
+    """
+    component_id: str = Field(..., min_length=1, max_length=64)
+    note: str = Field(..., min_length=1, max_length=2000)
+
+
+class CoreThoughtBase(BaseModel):
+    title: str = Field(..., min_length=1, max_length=500)
+    thesis: str = Field(..., min_length=1)  # Text in ORM, 无 max_length
+    rationale: Optional[str] = None
+    how_to_apply: Optional[str] = None
+    origin: Optional[str] = Field(None, max_length=200)
+    status: CoreThoughtStatus = CoreThoughtStatus.draft
+    tags: List[str] = []
+    examples: List[CoreThoughtExample] = []
+    proposer: Optional[str] = Field(None, max_length=100)
+
+
+class CoreThoughtCreate(CoreThoughtBase):
+    pass
+
+
+class CoreThoughtUpdate(BaseModel):
+    """部分更新(对齐 FeedbackUpdate / LiteratureUpdate 风格:exclude_unset 增量)"""
+    title: Optional[str] = Field(None, min_length=1, max_length=500)
+    thesis: Optional[str] = Field(None, min_length=1)
+    rationale: Optional[str] = None
+    how_to_apply: Optional[str] = None
+    origin: Optional[str] = Field(None, max_length=200)
+    status: Optional[CoreThoughtStatus] = None
+    tags: Optional[List[str]] = None
+    examples: Optional[List[CoreThoughtExample]] = None
+    proposer: Optional[str] = Field(None, max_length=100)
+
+
+class CoreThoughtOut(CoreThoughtBase, ORMBase):
+    id: str
+    is_archived: bool = False
+    created_at: datetime
+    updated_at: datetime
+
+
+class CoreThoughtList(BaseModel):
+    items: List[CoreThoughtOut]
     total: int

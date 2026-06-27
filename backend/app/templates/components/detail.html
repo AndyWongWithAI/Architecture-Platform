@@ -198,6 +198,23 @@
     {% endif %}
 </article>
 
+{# REQ-968b1c99:被核心思想引用 #}
+<article class="arch-card" data-tone="brass">
+    <h4>📜 被核心思想引用 <span class="arch-muted" style="font-size:0.85rem;">({{ referenced_by_core_thoughts | length if referenced_by_core_thoughts else 0 }} 条)</span></h4>
+    {# 这里的 referenced_by_core_thoughts 由 component_detail 路由传入 #}
+    {% if referenced_by_core_thoughts %}
+    <ul style="margin: 0; padding-left: 1.25rem;">
+    {% for ct in referenced_by_core_thoughts %}
+        <li><a href="/core-thoughts/{{ ct.id }}">{{ ct.title | truncate(80) }}</a>
+        {% if ct.note %}<span class="arch-muted">— {{ ct.note | truncate(60) }}</span>{% endif %}
+        </li>
+    {% endfor %}
+    </ul>
+    {% else %}
+    <p><em>暂无核心思想引用本组件</em></p>
+    {% endif %}
+</article>
+
 <hr>
 <div class="arch-toolbar" style="border-bottom:none;">
     <div class="arch-toolbar-left">

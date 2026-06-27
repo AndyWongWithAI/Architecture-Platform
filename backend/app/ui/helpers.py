@@ -353,3 +353,12 @@ def register_filters(env):
     # Audit Module(REQ-7328c640)
     env.filters["audit_severity_color"] = audit_severity_color
     env.filters["audit_severity_zh"] = audit_severity_zh
+    # REQ-968b1c99(2026-06-27):core_thought detail 页 — 渲染 markdown 字段
+    env.filters["markdown"] = _markdown_filter
+
+
+# REQ-968b1c99(2026-06-27):core_thought detail 页用 — 渲染数据库存的 markdown 字段
+def _markdown_filter(text):
+    """Jinja2 过滤器:把 markdown 文本渲染成 HTML 片段(走 Pygments 代码高亮)"""
+    from .markdown_renderer import render_markdown
+    return render_markdown(text)
